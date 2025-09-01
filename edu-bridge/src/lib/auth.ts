@@ -116,6 +116,11 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
       role: 'student',
       registrationDate: serverTimestamp() as Timestamp,
       lastLogin: null,
+      isVerified: true,  // Auto-verify students with valid matric ID
+      verificationStatus: 'approved',
+      approvedBy: 'system',
+      approverName: 'Automatic Verification',
+      approvalDate: serverTimestamp() as Timestamp,
       
       // Profile
       profile: {
@@ -147,7 +152,8 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      displayName: userData.profile.displayName
+      displayName: userData.profile.displayName,
+      isVerified: userData.isVerified
     };
 
     return {
@@ -209,7 +215,8 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       programName: userData.programName,
       entryYear: userData.entryYear,
       avatar: userData.profile.avatar,
-      displayName: userData.profile.displayName
+      displayName: userData.profile.displayName,
+      isVerified: userData.isVerified
     };
 
     return {
@@ -262,7 +269,8 @@ export async function getUserProfile(uid: string): Promise<User | null> {
       programName: userData.programName,
       entryYear: userData.entryYear,
       avatar: userData.profile.avatar,
-      displayName: userData.profile.displayName
+      displayName: userData.profile.displayName,
+      isVerified: userData.isVerified
     };
 
   } catch (error) {
@@ -281,7 +289,7 @@ function mapFirebaseError(error: unknown): AuthError {
     case AUTH_ERROR_CODES.EMAIL_ALREADY_IN_USE:
       return {
         code: errorCode,
-        message: 'This email address is already registered. Try logging in instead.',
+        message: 'This email address is already registered. If you deleted your account, you may need to wait a few minutes or contact admin to remove it from Firebase Authentication.',
         field: 'email'
       };
       

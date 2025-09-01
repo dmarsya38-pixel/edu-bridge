@@ -8,9 +8,10 @@ import type { RegistrationFormData, RegistrationStatus, ValidationState } from '
 interface RegistrationFormProps {
   onSuccess?: (user: import('@/types/user').User) => void;
   onLoginRedirect?: () => void;
+  onSwitchToLecturer?: () => void;
 }
 
-export default function RegistrationForm({ onSuccess, onLoginRedirect }: RegistrationFormProps) {
+export default function RegistrationForm({ onSuccess, onLoginRedirect, onSwitchToLecturer }: RegistrationFormProps) {
   // Form state
   const [formData, setFormData] = useState<RegistrationFormData>({
     matricId: '',
@@ -199,10 +200,10 @@ export default function RegistrationForm({ onSuccess, onLoginRedirect }: Registr
           <span className="text-white text-2xl font-bold">E+</span>
         </div>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-          Join EduBridge+
+          Student Registration
         </h1>
         <p className="text-gray-500 dark:text-gray-400">
-          Create your account for Politeknik Nilai Commerce Department
+          Create your student account for Politeknik Nilai Commerce Department
         </p>
       </div>
 
@@ -403,8 +404,8 @@ export default function RegistrationForm({ onSuccess, onLoginRedirect }: Registr
           </button>
         </form>
 
-        {/* Login Link */}
-        <div className="mt-6 text-center">
+        {/* Login Link and Role Switch */}
+        <div className="mt-6 text-center space-y-2">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{' '}
             <button
@@ -414,6 +415,17 @@ export default function RegistrationForm({ onSuccess, onLoginRedirect }: Registr
               Sign in here
             </button>
           </p>
+          {onSwitchToLecturer && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Are you a lecturer?{' '}
+              <button
+                onClick={onSwitchToLecturer}
+                className="text-emerald-600 hover:text-emerald-500 font-medium"
+              >
+                Register as Lecturer
+              </button>
+            </p>
+          )}
         </div>
       </div>
 

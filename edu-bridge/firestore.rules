@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can create their own profile during registration
+    match /users/{userId} {
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.uid == request.auth.uid;
+
+      // Users can read and update their own profile
+      allow read, update: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Allow querying users collection for employee ID validation during registration
+    match /users/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Programmes - readable by all authenticated users, writable by admins only
+    match /programmes/{programmeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // Subjects - readable by all authenticated users, writable by admins only  
+    match /subjects/{subjectId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // Materials - simplified rules for upload and access
+    match /materials/{materialId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null && 
+        request.resource.data.uploaderId == request.auth.uid;
+
+      allow update: if request.auth != null && 
+        (resource.data.uploaderId == request.auth.uid || isAdmin());
+
+      allow delete: if request.auth != null && 
+        (resource.data.uploaderId == request.auth.uid || isAdmin());
+    }
+
+    // Config collection - readable by authenticated users
+    match /config/{document} {
+      allow read: if request.auth != null;
+    }
+
+    // Admin access (for future use)
+    match /{document=**} {
+      allow read, write: if request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+
+  // Helper function to check if user is admin
+  function isAdmin() {
+    return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+  }
+}

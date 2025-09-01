@@ -52,6 +52,12 @@ export interface UserProfile {
   role: UserRole;
   registrationDate: Timestamp;
   lastLogin: Timestamp | null;
+  isVerified: boolean;
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approverName?: string;
+  approvalDate?: Timestamp;
+  rejectionReason?: string;
   
   // Optional Profile Data
   profile: {
@@ -82,6 +88,7 @@ export interface User {
   entryYear: string;
   avatar?: string;
   displayName?: string;
+  isVerified?: boolean;
 }
 
 // Auth context state
@@ -148,6 +155,12 @@ export interface CreateUserData {
   role: UserRole;
   registrationDate: Timestamp;
   lastLogin: null;
+  isVerified: boolean;
+  verificationStatus: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approverName?: string;
+  approvalDate?: Timestamp;
+  rejectionReason?: string;
   profile: {
     nickname: null;
     avatar: null;

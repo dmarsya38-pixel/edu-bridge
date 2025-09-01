@@ -1,0 +1,28 @@
+rules_version = '2';
+
+  service firebase.storage {
+    match /b/{bucket}/o {
+      // Materials storage rules
+      match /materials/{programmeId}/{semester}/{subjectId}/{materialType}/{fileName} {
+        // Allow read access for authenticated users (we control visibility in Firestore)
+        allow read: if request.auth != null;
+
+        // Allow upload for authenticated users with file validation
+        allow write: if request.auth != null &&
+          resource.size < 10 * 1024 * 1024 &&
+          (resource.contentType.matches('application/pdf') ||
+           resource.contentType.matches('application/msword') ||
+           resource.contentType.matches('application/vnd.openxmlformats-officedocument.*') ||
+           resource.contentType.matches('application/vnd.ms-.*'));
+
+        // Allow delete for authenticated users (we control this in app logic)
+        allow delete: if request.auth != null;
+      }
+
+      // Temporary uploads
+      match /temp/{userId}/{fileName} {
+        allow read, write, delete: if request.auth != null &&
+          request.auth.uid == userId;
+      }
+    }
+  }

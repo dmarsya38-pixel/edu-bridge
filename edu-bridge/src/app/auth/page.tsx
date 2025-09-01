@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import RegistrationForm from '@/components/auth/RegistrationForm';
+import { LecturerRegistrationForm } from '@/components/auth/LecturerRegistrationForm';
 import LoginForm from '@/components/auth/LoginForm';
 
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register-student' | 'register-lecturer';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -22,7 +23,7 @@ export default function AuthPage() {
         router.push('/admin');
         break;
       case 'lecturer':
-        router.push('/lecturer');
+        router.push('/dashboard'); // Lecturers use the same dashboard for now
         break;
       case 'student':
       default:
@@ -31,20 +32,39 @@ export default function AuthPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {mode === 'login' ? (
+  const renderContent = () => {
+    switch (mode) {
+      case 'login':
+        return (
           <LoginForm
             onSuccess={handleAuthSuccess}
-            onRegisterRedirect={() => setMode('register')}
+            onRegisterRedirect={() => setMode('register-student')}
           />
-        ) : (
+        );
+      case 'register-student':
+        return (
           <RegistrationForm
             onSuccess={handleAuthSuccess}
             onLoginRedirect={() => setMode('login')}
+            onSwitchToLecturer={() => setMode('register-lecturer')}
           />
-        )}
+        );
+      case 'register-lecturer':
+        return (
+          <LecturerRegistrationForm
+            onSwitchToStudent={() => setMode('register-student')}
+            onSuccess={handleAuthSuccess}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        {renderContent()}
       </div>
 
       {/* Footer */}

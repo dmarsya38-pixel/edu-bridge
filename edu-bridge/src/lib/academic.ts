@@ -1,0 +1,393 @@
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  serverTimestamp,
+  Timestamp,
+  getDocsFromServer
+} from 'firebase/firestore';
+import { db } from './firebase';
+import type {
+  Programme,
+  Subject,
+  Material,
+  MaterialFilter,
+  MaterialUploadData,
+  MaterialMetadata
+} from '@/types/academic';
+
+// Global cache for programmes (rarely change)
+let programmesCache: Programme[] | null = null;
+let programmesCacheTime = 0;
+
+// Programme Management
+export async function getProgrammes(): Promise<Programme[]> {
+  const now = Date.now();
+  
+  // Use longer cache for programmes (15 minutes) since they rarely change
+  if (programmesCache && (now - programmesCacheTime < 15 * 60 * 1000)) {
+    console.log('💰 CACHE HIT: Using cached programmes');
+    return programmesCache;
+  }
+  
+  try {
+    console.log('🔍 Firestore query: Loading programmes');
+    const querySnapshot = await getDocs(
+      query(collection(db, 'programmes'), orderBy('programmeCode'))
+    );
+    
+    const programmes = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      programmeId: doc.id
+    })) as Programme[];
+    
+    // Cache programmes
+    programmesCache = programmes;
+    programmesCacheTime = now;
+    
+    console.log(`💾 CACHED: Stored ${programmes.length} programmes`);
+    return programmes;
+  } catch (error) {
+    console.error('Error fetching programmes:', error);
+    return [];
+  }
+}
+
+export async function getProgramme(programmeId: string): Promise<Programme | null> {
+  try {
+    const docSnap = await getDoc(doc(db, 'programmes', programmeId));
+    if (docSnap.exists()) {
+      return {
+        ...docSnap.data(),
+        programmeId: docSnap.id
+      } as Programme;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching programme:', error);
+    return null;
+  }
+}
+
+export async function createProgramme(programme: Omit<Programme, 'programmeId' | 'createdAt'>): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, 'programmes'), {
+      ...programme,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating programme:', error);
+    throw error;
+  }
+}
+
+// Subject Management
+export async function getSubjects(): Promise<Subject[]> {
+  try {
+    const querySnapshot = await getDocs(
+      query(collection(db, 'subjects'), orderBy('subjectCode'))
+    );
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      subjectId: doc.id
+    })) as Subject[];
+  } catch (error) {
+    console.error('Error fetching subjects:', error);
+    return [];
+  }
+}
+
+export async function getSubjectsByProgramme(programmeId: string): Promise<Subject[]> {
+  try {
+    const querySnapshot = await getDocs(
+      query(
+        collection(db, 'subjects'),
+        where('programmeId', '==', programmeId),
+        orderBy('semester'),
+        orderBy('subjectCode')
+      )
+    );
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      subjectId: doc.id
+    })) as Subject[];
+  } catch (error) {
+    console.error('Error fetching subjects by programme:', error);
+    return [];
+  }
+}
+
+// In-memory cache for subjects (per session)
+const subjectsCache = new Map<string, Subject[]>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const cacheTimestamps = new Map<string, number>();
+
+export async function getSubjectsBySemester(programmeId: string, semester: number): Promise<Subject[]> {
+  const cacheKey = `${programmeId}_${semester}`;
+  const now = Date.now();
+  
+  // Check if we have fresh cached data
+  if (subjectsCache.has(cacheKey) && cacheTimestamps.has(cacheKey)) {
+    const cacheTime = cacheTimestamps.get(cacheKey)!;
+    if (now - cacheTime < CACHE_DURATION) {
+      console.log(`💰 CACHE HIT: Using cached subjects for ${programmeId} semester ${semester}`);
+      return subjectsCache.get(cacheKey)!;
+    }
+  }
+  
+  try {
+    console.log(`🔍 Firestore query (CACHED): programme="${programmeId}", semester=${semester}`);
+    
+    // Use regular getDocs (with Firebase's built-in caching)
+    const querySnapshot = await getDocs(
+      query(
+        collection(db, 'subjects'),
+        where('programmeId', '==', programmeId),
+        where('semester', '==', semester),
+        orderBy('subjectCode')
+      )
+    );
+    
+    const subjects = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      subjectId: doc.id
+    })) as Subject[];
+    
+    // Cache the results
+    subjectsCache.set(cacheKey, subjects);
+    cacheTimestamps.set(cacheKey, now);
+    
+    console.log(`💾 CACHED: Stored ${subjects.length} subjects for ${cacheKey}`);
+    return subjects;
+  } catch (error) {
+    console.error('Error fetching subjects by semester:', error);
+    return [];
+  }
+}
+
+export async function createSubject(subject: Omit<Subject, 'subjectId' | 'createdAt'>): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, 'subjects'), {
+      ...subject,
+      createdAt: serverTimestamp()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating subject:', error);
+    throw error;
+  }
+}
+
+// Material Management
+export async function getMaterials(filter?: MaterialFilter): Promise<Material[]> {
+  try {
+    let q = query(collection(db, 'materials'));
+    
+    // Apply filters
+    if (filter?.programmeId) {
+      q = query(q, where('programmeId', '==', filter.programmeId));
+    }
+    if (filter?.semester) {
+      q = query(q, where('semester', '==', filter.semester));
+    }
+    if (filter?.subjectCode) {
+      q = query(q, where('subjectCode', '==', filter.subjectCode));
+    }
+    if (filter?.materialType) {
+      q = query(q, where('materialType', '==', filter.materialType));
+    }
+    if (filter?.approvalStatus) {
+      q = query(q, where('approvalStatus', '==', filter.approvalStatus));
+    }
+    if (filter?.uploaderId) {
+      q = query(q, where('uploaderId', '==', filter.uploaderId));
+    }
+    
+    // Order by most recent
+    q = query(q, orderBy('uploadDate', 'desc'));
+    
+    const querySnapshot = await getDocs(q);
+    let materials = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      materialId: doc.id
+    })) as Material[];
+    
+    // Apply text search filter if provided
+    if (filter?.searchQuery) {
+      const searchTerm = filter.searchQuery.toLowerCase();
+      materials = materials.filter(material =>
+        material.title.toLowerCase().includes(searchTerm) ||
+        material.description?.toLowerCase().includes(searchTerm) ||
+        material.subjectName.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return materials;
+  } catch (error) {
+    console.error('Error fetching materials:', error);
+    return [];
+  }
+}
+
+export async function getMaterial(materialId: string): Promise<Material | null> {
+  try {
+    const docSnap = await getDoc(doc(db, 'materials', materialId));
+    if (docSnap.exists()) {
+      return {
+        ...docSnap.data(),
+        materialId: docSnap.id
+      } as Material;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching material:', error);
+    return null;
+  }
+}
+
+export async function createMaterial(
+  metadata: MaterialMetadata,
+  file: {
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+    downloadURL: string;
+  },
+  uploaderId: string,
+  uploaderRole: 'student' | 'lecturer'
+): Promise<string> {
+  try {
+    // Auto-approve lecturer uploads, require approval for students
+    const approvalStatus = uploaderRole === 'lecturer' ? 'approved' : 'pending';
+    
+    const materialData = {
+      ...metadata,
+      ...file,
+      uploaderId,
+      uploaderRole,
+      uploadDate: serverTimestamp(),
+      approvalStatus,
+      ...(approvalStatus === 'approved' && { approvedDate: serverTimestamp() }),
+      downloadCount: 0,
+      views: 0
+    };
+    
+    const docRef = await addDoc(collection(db, 'materials'), materialData);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating material:', error);
+    throw error;
+  }
+}
+
+export async function updateMaterial(materialId: string, updates: Partial<Material>): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'materials', materialId), updates);
+  } catch (error) {
+    console.error('Error updating material:', error);
+    throw error;
+  }
+}
+
+export async function deleteMaterial(materialId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'materials', materialId));
+  } catch (error) {
+    console.error('Error deleting material:', error);
+    throw error;
+  }
+}
+
+// Material approval functions for admin
+export async function approveMaterial(materialId: string, adminId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'materials', materialId), {
+      approvalStatus: 'approved',
+      approvedBy: adminId,
+      approvedDate: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error approving material:', error);
+    throw error;
+  }
+}
+
+export async function rejectMaterial(materialId: string, adminId: string, reason: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'materials', materialId), {
+      approvalStatus: 'rejected',
+      approvedBy: adminId,
+      approvedDate: serverTimestamp(),
+      rejectionReason: reason
+    });
+  } catch (error) {
+    console.error('Error rejecting material:', error);
+    throw error;
+  }
+}
+
+// Get pending materials for admin approval
+export async function getPendingMaterials(): Promise<Material[]> {
+  try {
+    const querySnapshot = await getDocs(
+      query(
+        collection(db, 'materials'),
+        where('approvalStatus', '==', 'pending'),
+        orderBy('uploadDate', 'desc')
+      )
+    );
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      materialId: doc.id
+    })) as Material[];
+  } catch (error) {
+    console.error('Error fetching pending materials:', error);
+    return [];
+  }
+}
+
+// Update download count
+export async function incrementDownloadCount(materialId: string): Promise<void> {
+  try {
+    const material = await getMaterial(materialId);
+    if (material) {
+      await updateDoc(doc(db, 'materials', materialId), {
+        downloadCount: (material.downloadCount || 0) + 1,
+        lastAccessed: serverTimestamp()
+      });
+    }
+  } catch (error) {
+    console.error('Error updating download count:', error);
+  }
+}
+
+// Get popular materials
+export async function getPopularMaterials(limitCount: number = 10): Promise<Material[]> {
+  try {
+    const querySnapshot = await getDocs(
+      query(
+        collection(db, 'materials'),
+        where('approvalStatus', '==', 'approved'),
+        orderBy('downloadCount', 'desc'),
+        limit(limitCount)
+      )
+    );
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      materialId: doc.id
+    })) as Material[];
+  } catch (error) {
+    console.error('Error fetching popular materials:', error);
+    return [];
+  }
+}
