@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EduBridge+ UI Theme • Style Reference</title>
+<style>
+/* =========
+   THEME TOKENS
+   ========= */
+:root{
+  --brand-h: 214;              /* brand hue (blue) */
+  --brand-s: 85%;
+  --brand-l: 48%;
+  --brand: hsl(var(--brand-h) var(--brand-s) var(--brand-l));
+  --brand-600: hsl(var(--brand-h) var(--brand-s) 42%);
+  --brand-700: hsl(var(--brand-h) 90% 36%);
+  --brand-100: hsl(var(--brand-h) 95% 96%);
+
+  --accent-h: 268;             /* secondary (violet) */
+  --accent: hsl(var(--accent-h) 75% 56%);
+  --accent-100: hsl(var(--accent-h) 85% 96%);
+
+  --ok:    hsl(152 64% 40%);
+  --warn:  hsl(39 92% 52%);
+  --danger:hsl(356 84% 52%);
+  --muted: hsl(220 12% 45%);
+
+  --bg:    hsl(220 16% 97%);
+  --card:  hsl(0 0% 100%);
+  --text:  hsl(220 16% 16%);
+  --text-2:hsl(220 10% 38%);
+  --border:hsl(220 15% 86%);
+  --ring:  color-mix(in oklab, var(--brand), white 60%);
+
+  --radius: 14px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.06);
+  --shadow-md: 0 8px 24px rgba(0,0,0,.08);
+  --shadow-lg: 0 14px 40px rgba(0,0,0,.10);
+
+  --fs-hero: clamp(28px, 4vw, 42px);
+  --fs-h1: clamp(22px, 3vw, 32px);
+  --fs-h2: clamp(18px, 2.2vw, 24px);
+  --fs-h3: clamp(16px, 2vw, 20px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:    hsl(222 16% 10%);
+    --card:  hsl(222 16% 14%);
+    --text:  hsl(220 14% 96%);
+    --text-2:hsl(220 12% 70%);
+    --border:hsl(220 16% 24%);
+    --brand-100: hsl(var(--brand-h) 35% 20%);
+    --accent-100: hsl(var(--accent-h) 35% 22%);
+    --ring:  color-mix(in oklab, var(--brand), black 60%);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,.45);
+    --shadow-md: 0 8px 24px rgba(0,0,0,.5);
+    --shadow-lg: 0 14px 40px rgba(0,0,0,.55);
+  }
+}
+
+/* =========
+   BASE STYLES
+   ========= */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+  background: radial-gradient(1200px 600px at 80% -10%, var(--brand-100), transparent 60%) no-repeat, var(--bg);
+  color:var(--text);
+}
+.container{
+  max-width:1200px;
+  margin-inline:auto;
+  padding:28px 20px 80px;
+}
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;margin:10px 0 20px;
+}
+.brand{
+  display:flex;align-items:center;gap:12px;
+}
+.logo{
+  width:42px;height:42px;border-radius:12px;
+  background:
+   conic-gradient(from 210deg at 65% 30%, var(--brand), transparent 40%),
+   radial-gradient(18px 18px at 30% 70%, var(--accent), transparent 60%),
+   linear-gradient(135deg, var(--brand-700), var(--brand));
+  box-shadow: var(--shadow-sm), inset 0 0 0 2px color-mix(in srgb, white, transparent 85%);
+}
+.brand b{font-size:18px; letter-spacing:.2px}
+.tagline{color:var(--text-2);font-size:13px}
+
+.nav{
+  display:flex;gap:8px;flex-wrap:wrap;
+}
+.tab{
+  padding:8px 12px;border-radius:999px;border:1px solid var(--border);
+  background:var(--card); color:var(--text-2);
+}
+.tab[data-active="true"]{
+  color:var(--text); border-color:color-mix(in srgb, var(--brand), var(--border) 50%);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+/* Sections */
+.section{margin:28px 0}
+.section h2{
+  font-size:var(--fs-h1); margin:0 0 14px; letter-spacing:.2px;
+}
+.grid{
+  display:grid; gap:16px;
+  grid-template-columns: repeat(12, 1fr);
+}
+.col-12{grid-column: span 12}
+.col-8{grid-column: span 8}
+.col-6{grid-column: span 6}
+.col-4{grid-column: span 4}
+.col-3{grid-column: span 3}
+@media (max-width: 900px){
+  .col-8{grid-column: span 12}
+  .col-6{grid-column: span 12}
+  .col-4{grid-column: span 12}
+  .col-3{grid-column: span 6}
+}
+
+/* Cards */
+.card{
+  background:var(--card); border:1px solid var(--border);
+  border-radius:var(--radius); padding:18px; box-shadow:var(--shadow-sm);
+}
+.card h3{margin:0 0 10px; font-size:var(--fs-h2)}
+.card .muted{color:var(--text-2); font-size:13px}
+
+/* Color chips */
+.swatch{
+  display:flex; align-items:center; gap:12px; padding:10px;
+  border-radius:12px; border:1px solid var(--border); background:var(--card)
+}
+.dot{width:28px;height:28px;border-radius:50%;}
+.kv{display:flex; flex-direction:column; font-size:12px}
+.kv b{font-size:13px}
+
+/* Buttons */
+.btn{
+  --bg: var(--brand);
+  --fg: white;
+  --bd: transparent;
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 14px; border-radius:12px; border:1px solid var(--bd);
+  background:var(--bg); color:var(--fg); text-decoration:none; cursor:pointer;
+  box-shadow: var(--shadow-sm);
+}
+.btn:hover{filter: brightness(1.05)}
+.btn:active{transform: translateY(1px)}
+.btn.ghost{--bg:transparent; --fg:var(--text); --bd:var(--border); background:linear-gradient(var(--card), var(--card)) padding-box, linear-gradient(135deg, var(--border), transparent) border-box}
+.btn.subtle{--bg: color-mix(in oklab, var(--brand), white 80%); --fg: var(--brand-700); --bd: transparent}
+.btn.warn{--bg: var(--warn)}
+.btn.ok{--bg: var(--ok)}
+.btn.danger{--bg: var(--danger)}
+.btn.icon{padding:10px;width:auto;aspect-ratio:1/1;justify-content:center}
+
+/* Inputs */
+.input, select, textarea{
+  width:100%; padding:10px 12px; border-radius:12px;
+  border:1px solid var(--border); background:var(--card); color:var(--text);
+  outline:none; box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.input:focus, select:focus, textarea:focus{border-color: var(--brand-600); box-shadow: 0 0 0 3px var(--ring)}
+label{font-size:12px; color:var(--text-2); display:block; margin:10px 0 6px}
+
+/* Badges & Chips */
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; font-size:12px; border-radius:999px; border:1px solid var(--border); background:var(--card);
+}
+.badge.brand{background: var(--brand-100); color: var(--brand-700); border-color: color-mix(in srgb, var(--brand-100), var(--border))}
+.badge.ok{background: color-mix(in srgb, var(--ok), white 84%); color: var(--ok)}
+.badge.warn{background: color-mix(in srgb, var(--warn), white 88%); color: var(--warn)}
+.badge.danger{background: color-mix(in srgb, var(--danger), white 88%); color: var(--danger)}
+
+/* Alerts */
+.alert{
+  padding:12px 14px; border-radius:12px; border:1px dashed var(--border); background: var(--card);
+}
+.alert.ok{border-color: color-mix(in srgb, var(--ok), var(--border)); background: color-mix(in srgb, var(--ok), white 92%)}
+.alert.warn{border-color: color-mix(in srgb, var(--warn), var(--border)); background: color-mix(in srgb, var(--warn), white 94%)}
+.alert.danger{border-color: color-mix(in srgb, var(--danger), var(--border)); background: color-mix(in srgb, var(--danger), white 93%)}
+
+/* Table */
+.table{
+  width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:var(--card); box-shadow: var(--shadow-sm);
+}
+.table th, .table td{padding:12px 14px; text-align:left; border-bottom:1px solid var(--border)}
+.table thead th{font-size:12px; color:var(--text-2); background: color-mix(in srgb, var(--card), var(--brand-100))}
+.table tbody tr:hover{background: color-mix(in srgb, var(--card), var(--brand-100) 30%)}
+.table tbody tr:last-child td{border-bottom:none}
+
+/* Breadcrumbs & Pagination */
+.breadcrumbs{display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-2)}
+.breadcrumbs a{color:inherit; text-decoration:none; padding:4px 8px; border-radius:8px}
+.breadcrumbs a:hover{background: var(--brand-100); color: var(--brand-700)}
+.pager{display:flex; gap:8px; align-items:center}
+.pager .page{min-width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--text-2); text-decoration:none}
+.pager .page[aria-current="page"]{background: var(--brand); border-color: var(--brand-700); color:white}
+
+/* Tabs */
+.tabs{display:flex; gap:8px; flex-wrap:wrap}
+.tabBtn{
+  all:unset; cursor:pointer; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--text-2)
+}
+.tabBtn[aria-selected="true"]{color:var(--text); border-color:var(--brand-600); box-shadow:0 0 0 3px var(--ring)}
+.tabPanel{display:none}
+.tabPanel[aria-hidden="false"]{display:block}
+
+/* Progress, Steps */
+.progress{height:10px; background:var(--border); border-radius:999px; overflow:hidden}
+.progress > i{display:block; height:100%; width:60%; background:var(--brand); border-radius:999px}
+.steps{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+.step{display:flex; align-items:center; gap:8px}
+.step .dot{width:22px;height:22px;border-radius:50%; background:var(--brand); color:#fff; display:grid; place-items:center; font-size:12px}
+.step.inactive .dot{background:var(--border); color:var(--text-2)}
+
+/* Tiny utilities */
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.right{margin-left:auto}
+.hr{height:1px;background:var(--border); margin:16px 0; border-radius:1px}
+.small{font-size:12px; color:var(--text-2)}
+.kbd{padding:2px 6px;border-radius:6px;border:1px solid var(--border); background:var(--card); font: 12px/1.2 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+
+/* Demo: JavaScript modal */
+.modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.4); display:none}
+.modal{position:fixed; inset:0; display:none; place-items:center; pointer-events:none}
+.modal > .sheet{pointer-events:auto; width:min(560px, 92vw); background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow-lg); padding:18px}
+.modal.show{display:grid}
+.modal-backdrop.show{display:block}
+
+/* Lists */
+.file{
+  display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border); border-radius:12px; background:var(--card)
+}
+.file .icon{width:36px;height:36px; border-radius:10px; background: var(--brand-100); display:grid; place-items:center; color:var(--brand-700); font-weight:700}
+.post{
+  padding:14px; border:1px solid var(--border); border-radius:12px; background:var(--card)
+}
+.post .meta{display:flex; gap:12px; align-items:center; color:var(--text-2); font-size:12px}
+
+/* Sticky footer note */
+.footer{
+  margin-top:28px; padding:12px 14px; border:1px dashed var(--border); border-radius:12px; background:linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card), var(--brand-100) 35%));
+  display:flex; align-items:center; justify-content:space-between; gap:8px
+}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <b>EduBridge+</b>
+          <div class="tagline">Politeknik learning hub • modern, calm, accessible</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="tab" data-active="true" href="#palette">Palette</a>
+        <a class="tab" href="#typography">Typography</a>
+        <a class="tab" href="#components">Components</a>
+        <a class="tab" href="#tables">Tables</a>
+        <a class="tab" href="#forms">Forms</a>
+        <a class="tab" href="#patterns">Patterns</a>
+      </nav>
+    </header>
+
+    <!-- HERO / BREADCRUMB -->
+    <div class="row breadcrumbs">
+      <a href="#">Design</a> › <a href="#">System</a> › <span>Theme Reference</span>
+      <span class="right small">Dark mode adapts automatically</span>
+    </div>
+
+    <!-- PALETTE -->
+    <section id="palette" class="section">
+      <h2>Color Palette & Tokens</h2>
+      <div class="grid">
+        <div class="col-6 card">
+          <h3>Brand</h3>
+          <div class="row">
+            <div class="swatch"><span class="dot" style="background:var(--brand)"></span><span class="kv"><b>--brand</b><span>#1677ff (primary)</span></span></div>
+            <div class="swatch"><span class="dot" style="background:var(--brand-700)"></span><span class="kv"><b>--brand-700</b><span>Hover / focus</span></span></div>
+            <div class="swatch"><span class="dot" style="background:var(--brand-100)"></span><span class="kv"><b>--brand-100</b><span>Soft background</span></span></div>
+          </div>
+          <div class="hr"></div>
+          <div class="row">
+            <span class="badge brand">badge: brand</span>
+            <span class="badge ok">badge: ok</span>
+            <span class="badge warn">badge: warn</span>
+            <span class="badge danger">badge: danger</span>
+          </div>
+        </div>
+        <div class="col-6 card">
+          <h3>States & Surfaces</h3>
+          <div class="row">
+            <div class="swatch"><span class="dot" style="background:var(--ok)"></span><span class="kv"><b>--ok</b><span>Success</span></span></div>
+            <div class="swatch"><span class="dot" style="background:var(--warn)"></span><span class="kv"><b>--warn</b><span>Warning</span></span></div>
+            <div class="swatch"><span class="dot" style="background:var(--danger)"></span><span class="kv"><b>--danger</b><span>Error</span></span></div>
+          </div>
+          <div class="hr"></div>
+          <div class="alert ok">Success: Material uploaded successfully.</div>
+          <div class="alert warn" style="margin-top:8px">Warning: Connection is slow.</div>
+          <div class="alert danger" style="margin-top:8px">Error: Permission denied.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TYPOGRAPHY -->
+    <section id="typography" class="section">
+      <h2>Typography & Headings</h2>
+      <div class="grid">
+        <div class="col-8 card">
+          <h1 style="font-size:var(--fs-hero);margin:0 0 6px">Design, but keep it human.</h1>
+          <p class="muted">System font stack for speed and clarity. Use <span class="kbd">.muted</span> for secondary text.</p>
+          <div class="hr"></div>
+          <h3>Heading H3</h3>
+          <p>Paragraph text. EduBridge+ aims to centralize notes, past papers, and answer schemes for Politeknik students with clean, calm UI.</p>
+          <ul>
+            <li>Readable sizes with fluid responsive scales</li>
+            <li>Generous spacing and soft shadows</li>
+            <li>Accessible contrast in light & dark modes</li>
+          </ul>
+        </div>
+        <div class="col-4 card">
+          <h3>Quick Stats (Card)</h3>
+          <div class="row"><span class="badge brand">Active</span><span class="badge">Free plan</span></div>
+          <div class="hr"></div>
+          <div class="row">
+            <div class="kv"><b>Materials</b><span class="muted">1,284</span></div>
+            <div class="kv"><b>Subjects</b><span class="muted">126</span></div>
+            <div class="kv"><b>Users</b><span class="muted">4,812</span></div>
+          </div>
+          <div class="hr"></div>
+          <div class="progress"><i style="width:72%"></i></div>
+          <div class="small" style="margin-top:6px">Storage usage: 72%</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPONENTS -->
+    <section id="components" class="section">
+      <h2>Core Components</h2>
+      <div class="grid">
+        <div class="col-6 card">
+          <h3>Buttons</h3>
+          <div class="row">
+            <button class="btn">Primary</button>
+            <button class="btn subtle">Subtle</button>
+            <button class="btn ghost">Ghost</button>
+            <button class="btn ok">Success</button>
+            <button class="btn warn">Warning</button>
+            <button class="btn danger">Danger</button>
+            <button class="btn icon" title="icon">✓</button>
+          </div>
+          <div class="hr"></div>
+          <div class="steps">
+            <div class="step"><span class="dot">1</span><span>Choose Programme</span></div>
+            <div class="step"><span class="dot">2</span><span>Select Subject</span></div>
+            <div class="step inactive"><span class="dot">3</span><span>Upload / Download</span></div>
+          </div>
+        </div>
+
+        <div class="col-6 card">
+          <h3>Tabs (static demo)</h3>
+          <div class="tabs row">
+            <button class="tabBtn" aria-selected="true">Notes</button>
+            <button class="tabBtn">Past Papers</button>
+            <button class="tabBtn">Answer Schemes</button>
+            <button class="tabBtn">Discussions</button>
+          </div>
+          <div class="hr"></div>
+          <div class="row">
+            <span class="badge">Filter</span>
+            <span class="badge">DBS</span>
+            <span class="badge">Sem 3</span>
+            <span class="badge">2023</span>
+            <button class="right btn ghost" onclick="openModal()">Open Modal</button>
+          </div>
+        </div>
+
+        <div class="col-6 card">
+          <h3>File Item (List)</h3>
+          <div class="row">
+            <div class="file" style="flex:1">
+              <div class="icon">PDF</div>
+              <div class="kv" style="flex:1">
+                <b>DBS1013_Marketing_Basics_Notes.pdf</b>
+                <span class="small">Subject: DBS1013 • Size: 1.2 MB • Uploaded by: Aisyah</span>
+              </div>
+              <span class="badge ok">Verified</span>
+              <button class="btn subtle">Download</button>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="file" style="flex:1">
+              <div class="icon">DOC</div>
+              <div class="kv" style="flex:1">
+                <b>DBF2024_PastYear_2022.docx</b>
+                <span class="small">Subject: DBF2024 • Size: 820 KB • Uploaded by: Kumar</span>
+              </div>
+              <span class="badge">Unverified</span>
+              <button class="btn ghost">Preview</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-6 card">
+          <h3>Forum Post</h3>
+          <div class="post">
+            <div class="meta">
+              <span class="badge brand">DBS • Sem 3</span>
+              <span>Nurul</span> · <span>2h ago</span> · <span>12 replies</span>
+            </div>
+            <p>Does anyone have tips for the case study section? I’m confused about structuring the answers.</p>
+            <div class="row">
+              <button class="btn subtle">Reply</button>
+              <button class="btn ghost">Follow</button>
+              <span class="right small">Be kind. Keep it academic.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLES -->
+    <section id="tables" class="section">
+      <h2>Tables</h2>
+      <div class="card">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Programme</th><th>Semester</th><th>Subject</th><th>Type</th><th>Year</th><th>Status</th><th class="right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>DBS</td><td>3</td><td>DBS1013</td><td>Notes</td><td>2024</td>
+              <td><span class="badge ok">Verified</span></td>
+              <td class="right"><a class="btn subtle">Open</a></td>
+            </tr>
+            <tr>
+              <td>DRM</td><td>2</td><td>DRM2004</td><td>Past Paper</td><td>2023</td>
+              <td><span class="badge warn">Pending</span></td>
+              <td class="right"><a class="btn subtle">Open</a></td>
+            </tr>
+            <tr>
+              <td>DLS</td><td>4</td><td>DLS3302</td><td>Answer Scheme</td><td>2022</td>
+              <td><span class="badge danger">Flagged</span></td>
+              <td class="right"><a class="btn subtle">Review</a></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="row" style="margin-top:12px">
+          <div class="pager">
+            <a class="page" href="#">‹</a>
+            <a class="page" aria-current="page" href="#">1</a>
+            <a class="page" href="#">2</a>
+            <a class="page" href="#">3</a>
+            <a class="page" href="#">›</a>
+          </div>
+          <span class="right small">Showing 1–10 of 126</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FORMS -->
+    <section id="forms" class="section">
+      <h2>Forms</h2>
+      <div class="grid">
+        <div class="col-6 card">
+          <h3>Upload Material</h3>
+          <label>Programme</label>
+          <select>
+            <option>DBS</option><option>DRM</option><option>DLS</option><option>DIF</option>
+          </select>
+          <label style="margin-top:8px">Semester</label>
+          <select>
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+          </select>
+          <label style="margin-top:8px">Subject Code</label>
+          <input class="input" placeholder="e.g., DBS1013" />
+          <label style="margin-top:8px">Title</label>
+          <input class="input" placeholder="Enter material title" />
+          <label style="margin-top:8px">Type</label>
+          <div class="row">
+            <label><input type="radio" name="t"> Notes</label>
+            <label><input type="radio" name="t"> Past Paper</label>
+            <label><input type="radio" name="t"> Answer Scheme</label>
+          </div>
+          <label style="margin-top:8px">Description</label>
+          <textarea rows="3" placeholder="Optional summary..."></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn">Upload</button>
+            <button class="btn ghost">Cancel</button>
+            <span class="right small">Max 10MB • PDF/DOC</span>
+          </div>
+        </div>
+        <div class="col-6 card">
+          <h3>Profile</h3>
+          <label>Full Name</label>
+          <input class="input" placeholder="Your name" />
+          <label style="margin-top:8px">Email</label>
+          <input class="input" type="email" placeholder="name@example.com" />
+          <label style="margin-top:8px">Password</label>
+          <input class="input" type="password" placeholder="••••••••" />
+          <div class="row" style="margin-top:10px">
+            <button class="btn">Save</button>
+            <button class="btn ghost">Log out</button>
+          </div>
+          <div class="hr"></div>
+          <div class="small">Tip: Use <span class="kbd">Tab</span> to move quickly between fields.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATTERNS -->
+    <section id="patterns" class="section">
+      <h2>Patterns & Layout</h2>
+      <div class="grid">
+        <div class="col-8 card">
+          <h3>Dashboard Widgets</h3>
+          <div class="grid" style="gap:12px">
+            <div class="col-4 card" style="background:var(--brand-100)">
+              <div class="small">Total Materials</div>
+              <h3 style="margin:4px 0 0">1,284</h3>
+              <div class="small">+68 this week</div>
+            </div>
+            <div class="col-4 card">
+              <div class="small">Active Users</div>
+              <h3 style="margin:4px 0 0">4,812</h3>
+              <div class="small">Online now: 142</div>
+            </div>
+            <div class="col-4 card">
+              <div class="small">Flagged Items</div>
+              <h3 style="margin:4px 0 0">7</h3>
+              <div class="small">Pending review</div>
+            </div>
+            <div class="col-12 card">
+              <div class="row">
+                <b>Review Queue</b>
+                <span class="right badge warn">5 pending</span>
+              </div>
+              <div class="hr"></div>
+              <div class="row">
+                <div class="file" style="flex:1"><div class="icon">PDF</div><div class="kv" style="flex:1"><b>DRM2004_Assignment_Guide.pdf</b><span class="small">Submitted by: Leong • 12m ago</span></div><button class="btn ok">Approve</button><button class="btn danger">Reject</button></div>
+              </div>
+              <div class="row" style="margin-top:10px">
+                <div class="file" style="flex:1"><div class="icon">PDF</div><div class="kv" style="flex:1"><b>DLS3302_AnswerScheme_2022.pdf</b><span class="small">Submitted by: Hana • 35m ago</span></div><button class="btn ok">Approve</button><button class="btn danger">Reject</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-4 card">
+          <h3>Breadcrumbs & Pagination</h3>
+          <div class="breadcrumbs"><a href="#">Home</a> › <a href="#">DBS</a> › <a href="#">Sem 3</a> › <span>DBS1013</span></div>
+          <div class="hr"></div>
+          <div class="pager">
+            <a class="page" href="#">‹</a>
+            <a class="page" aria-current="page" href="#">1</a>
+            <a class="page" href="#">2</a>
+            <a class="page" href="#">3</a>
+            <a class="page" href="#">›</a>
+          </div>
+          <div class="hr"></div>
+          <div class="small">Use breadcrumbs for deep subject paths and pagination for long resource lists.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODAL DEMO (CSS ONLY) -->
+    <a id="demoModal"></a>
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal">
+      <div class="sheet">
+        <div class="row">
+          <b>Quick Actions</b>
+          <button class="right btn ghost" onclick="closeModal()">Close</button>
+        </div>
+        <div class="hr"></div>
+        <div class="row">
+          <button class="btn">New Subject</button>
+          <button class="btn subtle">Import CSV</button>
+          <button class="btn warn">Clear Cache</button>
+        </div>
+        <div class="hr"></div>
+        <p class="small">This modal uses JavaScript for proper open/close functionality.</p>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="small">This single page is your design contract: colors, spacing, components, and patterns.</div>
+      <div class="row">
+        <a class="btn ghost" href="#palette">Colors</a>
+        <a class="btn subtle" href="#components">Components</a>
+        <a class="btn" href="#forms">Forms</a>
+      </div>
+    </div>
+  </div>
+
+<script>
+function openModal() {
+  document.querySelector('.modal').classList.add('show');
+  document.querySelector('.modal-backdrop').classList.add('show');
+}
+
+function closeModal() {
+  document.querySelector('.modal').classList.remove('show');
+  document.querySelector('.modal-backdrop').classList.remove('show');
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeModal();
+  }
+});
+</script>
+</body>
+</html>

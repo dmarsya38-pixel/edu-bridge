@@ -1,0 +1,158 @@
+PENGENALAN
+Dalam era digital hari ini, teknologi telah menjadi penting dalam meningkatkan
+proses pengajaran dan pembelajaran dalam pendidikan tinggi. Pelajar semakin
+bergantung pada platform digital untuk mengakses sumber akademik,
+berkolaborasi dengan rakan sebaya, dan memperbaiki pengalaman pembelajaran
+mereka. Walau bagaimanapun, banyak sistem sedia ada adalah terpecah-pecah,
+menjadikannya sukar bagi pelajar untuk mendapatkan nota kuliah, kertas
+peperiksaan lalu, skema jawapan, dan terlibat dalam perbincangan akademik
+interaktif dalam satu platform yang terpusat. Setelah menyedari kekurangan ini,
+laman web EduBridge+ telah direka sebagai penyelesaian bersepadu untuk
+menangani cabaran ini, terutamanya untuk pelajar di institusi Politeknik,
+khususnya dalam Jabatan Perdagangan. Laman web ini menyediakan ciri-ciri
+seperti perkongsian nota yang teratur, carian kertas peperiksaan lalu berdasarkan
+subjek, akses kepada skema jawapan, dan ruang perbincangan khusus untuk
+menggalakkan pembelajaran rakan sebaya.
+Dibina menggunakan teknologi pembangunan web moden dengan integrasi
+pangkalan data, EduBridge+ memastikan bahawa sumber-sumber diuruskan
+secara sistematik, mudah diakses, dan dipaparkan melalui antaramuka yang mesra
+pengguna. Inisiatif ini bukan sahaja menyokong keperluan akademik pelajar tetapi
+juga menggalakkan pembelajaran kendiri dan menggalakkan persekitaran
+pembelajaran yang lebih kolaboratif.
+PERNYATAAN MASALAH
+Pelajar di institusi pengajian tinggi semakin bergantung kepada sumber akademik
+secara dalam talian. Namun begitu, terdapat beberapa faktor yang menyebabkan
+timbulnya permasalahan. Antaranya ialah ketiadaan platform berpusat yang
+menyusun nota kuliah, kertas peperiksaan lepas, serta skema jawapan mengikut
+kursus dan subjek. Situasi ini menyebabkan pelajar menghadapi kesukaran dalam
+mendapatkan bahan pembelajaran yang relevan dan lengkap secara teratur. Selain
+itu, kekangan sistem perpustakaan sedia ada yang hanya membenarkan carian
+mengikut sesi, tanpa penapisan terperinci berdasarkan program atau kod subjek,
+turut menyukarkan akses kepada bahan rujukan yang bersesuaian.
+Masalah ini memberi impak yang besar kepada pelajar kerana ia boleh
+menjejaskan keberkesanan ulang kaji, mengurangkan kecekapan dalam
+pengurusan masa pembelajaran, dan akhirnya memberi kesan kepada prestasi
+akademik. Dari perspektif yang lebih luas, ia turut menjejaskan keberkesanan
+sistem pendidikan tinggi negara dalam melahirkan graduan yang berkualiti dan
+bersedia menghadapi cabaran industri.
+
+OBJEKTIF PROJEK
+1.Mengenalpasti keperluan pembangunan laman web EduBridge+ untuk
+memudahkan pelajar politeknik untuk mengakses nota kuliah, kertas peperiksaan,
+,skema jawapan dan menyediakan ruang maklumbalas yang lebih efektif.
+2.Membangunkan laman web EduBridge+ yang menggunakan komponankomponan revolusi perindustrian 4.0(IR 4.0) iaitu pengkomputeran awan dan
+sekuriti siber.
+3.Menilai kebolehgunaan laman web EduBridge+ bagi penggunaan di kalangan
+pelajar-pelajar politeknik.
+
+PENERANGAN PROJEK
+EduBridge+ adalah platform berasaskan web yang direka khusus untuk pelajar
+Jabatan Perdagangan. Laman web ini memudahkan pelajar mengakses dan
+menyimpan nota kuliah, kertas soalan peperiksaan, dan skim jawapan dalam satu
+platform yang teratur. Selain itu, EduBridge+ juga menyediakan ruang
+perbincangan dan kumpulan belajar untuk menggalakkan pelajar berkongsi
+pengetahuan dan berinteraksi antara satu sama lain. EduBridge+ dibangunkan
+dengan mengintegrasikan elemen utama Revolusi Perindustrian 4.0 (IR 4.0) seperti
+pengkomputeran awan (cloud computing) dan sekuri̇ti siber (cybersecurity).
+Laman web ini akan dibangunkan menggunakan Visual Studio Code dan Next.js
+kerana ia menyokong aplikasi web moden dengan prestasi tinggi melalui serverside rendering (SSR) dan static site generation (SSG). Next.js juga memudahkan
+pembangunan reka bentuk mesra pengguna dan responsif untuk mudah alih.Selain
+itu, laman web ini akan diintegrasikan dengan Firebase yang menyediakan
+perkhidmatan seperti pangkalan data masa nyata (Cloud Firestore), pengesahan
+pengguna, dan penyimpanan fail. Gabungan Visual Studio Code,Next.js dan
+Firebase membolehkan pembangunan yang lebih cekap, berskala, dan mudah
+diselenggara.
+Dalam sistem EduBridge+, pengguna terdiri daripada pelajar dan pensyarah yang
+berperanan sebagai pengguna utama. Mereka boleh melakukan pelbagai capaian
+seperti log masuk ke sistem, mengakses dan memuat turun nota kuliah, kertas
+peperiksaan lepas serta skema jawapan. Selain itu, pengguna juga boleh memuat
+naik bahan pembelajaran tambahan, menyertai forum perbincangan mengikut
+kursus atau subjek tertentu, memberikan komen serta maklum balas terhadap bahan
+yang dikongsi, dan menggunakan fungsi carian untuk mendapatkan rujukan
+mengikut kursus atau kod subjek dengan lebih teratur.
+Bagi pentadbir sistem, mereka bertanggungjawab sepenuhnya dalam memastikan
+kelancaran sistem. Peranan ini merangkumi pengurusan pengguna dengan
+menambah, mengemaskini atau membuang akaun, memuat naik dan menyusun
+bahan akademik mengikut kursus serta semester, menyemak bagi memastikan
+kualiti dan ketepatan, memantau forum perbincangan untuk mengelakkan salah
+guna, serta menjalankan penyelenggaraan sistem termasuk keselamatan data dan
+prestasi. Dengan peranan yang berbeza ini, EduBridge+ dapat menyediakan satu
+platform yang lebih tersusun, teratur dan bermanfaat untuk komuniti akademik.
+
+SKOP PROJEK DAN BATASAN
+Projek ini dibangunkan bagi menghasilkan sebuah laman web pembelajaran digital
+yang dikenali sebagai EduBridge+, khusus untuk pelajar Jabatan Perdagangan di
+Politeknik. Skop sistem ini terbahagi kepada dua kategori utama iaitu pelajar
+sebagai pengguna,pensyarah dan pentadbir sebagai pengurus sistem. Bagi skop
+pelajar dan pensyarah, mereka boleh mendaftar akaun dan log masuk ke dalam
+sistem untuk mengakses pelbagai bahan akademik seperti nota kuliah, kertas
+peperiksaan dan skema jawapan. Pelajar juga boleh memilih program, semester dan
+subjek bagi mendapatkan bahan yang lebih tersusun mengikut keperluan. Selain
+itu, mereka diberi fungsi untuk memuat naik nota, meninggalkan komen, melihat
+respon daripada pelajar lain, serta log keluar selepas selesai menggunakan sistem.
+Dari sudut pentadbir, sistem menyediakan papan pemuka (dashboard) khas yang
+membolehkan admin mengurus subjek, memuat naik bahan akademik, memantau
+aktiviti pengguna, serta mengawal bahan yang dikongsi agar relevan dan sesuai
+digunakan. Fungsi ini memastikan sistem kekal teratur dan mesra pengguna.Walau
+bagaimanapun, skop projek ini hanya memfokuskan kepada pelajar Jabatan
+Perdagangan sahaja dan tidak merangkumi integrasi dengan portal rasmi
+Politeknik. Di samping itu, sistem ini hanya menyediakan bahan akademik
+percuma tanpa melibatkan sebarang urusan pembayaran atau transaksi kewangan.
+Walaupun mempunyai potensi, projek ini juga mempunyai beberapa kekangan.
+Pertama, penggunaan awal hanya terhad kepada Politeknik Nilai dan tidak dibuka
+kepada institusi lain, sekali gus mengehadkan capaian yang lebih luas. Kedua,
+prestasi sistem sangat bergantung pada kestabilan sambungan internet, yang boleh
+menjejaskan kelajuan capaian sekiranya sambungan lemah atau server mengalami
+kesesakan.Selain itu,keberkesanan platform ini juga berpotensi terjejas sekiranya
+berlaku gangguan teknikal seperti masalah pelayan (server down), ralat sistem
+(bug), atau kelewatan dalam proses penyelenggaraan. Masalah-masalah teknikal
+ini boleh menghalang pelajar daripada mengakses bahan pembelajaran pada waktu
+yang diperlukan
+
+
+KAJIAN LEPAS
+Kajian terdahulu menunjukkan bahawa pelajar berdepan dengan pelbagai cabaran
+dalam mengakses dan mengurus bahan akademik. Menurut UNESCO (2021),
+jurang digital menyebabkan ramai pelajar menghadapi kesukaran untuk
+mendapatkan akses kepada bahan pembelajaran secara adil. Kekangan kos bahan
+akademik, masalah internet yang perlahan, serta platform yang terhad menjadikan
+akses kepada nota dan e-buku semakin mencabar. Situasi ini menunjukkan
+perlunya satu platform alternatif yang boleh memudahkan pelajar mendapatkan
+bahan pembelajaran dengan lebih mudah dan sistematik.
+Dari aspek pengurusan bahan akademik, Zaffri, Hussin, Tokiran, dan Rahman
+(2023) mendapati kelemahan dalam pengurusan maklumat menyebabkan pelajar
+sukar menyimpan dan menyusun nota, artikel, serta tugasan secara berkesan. Tanpa
+sistem penyimpanan bersepadu, pelajar terdedah kepada masalah kehilangan
+maklumat dan kesukaran ketika membuat rujukan semula. Hal ini memberi
+petunjuk bahawa pelajar memerlukan sistem digital yang dapat mengurus dan
+menyimpan maklumat akademik dengan lebih teratur.
+Selain itu, Abu-Al-Aish dan Abu-Naser (2023) menekankan bahawa platform
+pembelajaran digital sedia ada masih belum sepenuhnya meningkatkan interaksi
+dan perkongsian berkesan antara pelajar. Ramai pelajar masih bergantung kepada
+aplikasi pesanan segera seperti WhatsApp atau Telegram untuk berkongsi nota dan
+bahan akademik, yang tidak tersusun dan mudah hilang. Dapatan ini jelas
+menunjukkan keperluan kepada platform khusus yang boleh menyokong interaksi,
+perkongsian, dan kolaborasi akademik secara lebih berkesan.
+CADANGAN PENYELESAIAN
+Cadangan penyelesaian bagi meningkatkan keberkesanan dan kestabilan platform
+EduBridge+ melibatkan beberapa aspek penting. Pertama, perluasan akses secara
+berperingkat dicadangkan, bermula dengan pelajar Politeknik Nilai sebelum
+dibuka kepada institusi lain. Langkah ini disertai dengan penggunaan sistem
+pendaftaran dan pengesahan pelajar bagi memastikan capaian platform dapat
+diurus dengan teratur dan hanya diberikan kepada pengguna yang sah. Kedua, dari
+segi pengoptimuman prestasi dan sambungan internet, penggunaan teknik caching
+adalah penting supaya bahan pembelajaran utama dapat diakses walaupun
+sambungan internet perlahan. Selain itu, pemilihan server hosting yang stabil dan
+mempunyai kapasiti tinggi juga diperlukan untuk menampung bilangan pengguna
+serentak tanpa menjejaskan kelajuan akses.
+Seterusnya, bagi pengurusan gangguan teknikal, beberapa mekanisme perlu
+dilaksanakan termasuk backup server dan pemulihan data automatik bagi
+mengurangkan kesan server down. Ujian sistem (system testing) secara berkala
+juga penting untuk mengesan dan membaiki bug lebih awal, manakala jadual
+penyelenggaraan ditetapkan di luar waktu puncak supaya tidak mengganggu
+pelajar semasa mereka mengakses bahan pembelajaran. Akhir sekali, sokongan
+pengguna perlu diperkuat dengan mewujudkan bahagian Help & Support di dalam
+platform, lengkap dengan FAQ agar pelajar dapat terus menggunakan sistem
+dengan mudah walaupun menghadapi gangguan teknikal kecil. Semua langkah ini
+bertujuan untuk memastikan EduBridge+ berfungsi secara lancar, mesra pengguna,
+dan dapat menyokong proses pembelajaran pelajar dengan lebih efektif.
