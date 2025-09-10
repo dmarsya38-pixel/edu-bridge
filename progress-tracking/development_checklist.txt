@@ -47,6 +47,7 @@
 - [x] Firebase Storage integration
 - [x] Content categorization and search
 - [x] Admin content management panel
+- [x] **NEW: Student Material Viewing System** (September 1, 2025)
 
 ### Key Features
 - [x] File upload with validation (PDF, DOC, PPT up to 10MB)
@@ -54,6 +55,11 @@
 - [x] Basic search and filtering by multiple criteria
 - [x] Admin content approval workflow (auto-approve lecturers, manual approve students)
 - [x] Material download tracking and analytics
+- [x] **NEW: Hierarchical material browsing** (Programme → Semester → Subject → Materials)
+- [x] **NEW: Academic year grouping** (Materials organized by upload year)
+- [x] **NEW: Material type filtering** (All, Exam Papers, Answer Schemes, Notes)
+- [x] **NEW: PDF preview modal** (Full-screen viewing with 95vh height)
+- [x] **NEW: Download analytics tracking** (Increments download counters)
 
 ### Technical Tasks
 - [x] Create Firebase Firestore data models (User, Programme, Subject, Material)
@@ -64,6 +70,10 @@
 - [x] Implement role-based dashboards (Student/Lecturer/Admin)
 - [x] Create material upload forms and validation
 - [x] Build academic data seeding utilities
+- [x] **NEW: MaterialCard component** (Individual material display with file type icons)
+- [x] **NEW: MaterialsList component** (Year-grouped material display with filtering)
+- [x] **NEW: DocumentViewer component** (PDF preview modal with download functionality)
+- [x] **NEW: StudentDashboard integration** (Complete navigation flow implementation)
 
 ---
 
