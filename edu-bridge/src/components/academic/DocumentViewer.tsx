@@ -86,55 +86,50 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 pt-0"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-6xl w-full max-h-[95vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-4 flex-1 min-w-0">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-7xl w-full h-[100vh] flex flex-col">
+        {/* Ultra Compact Header */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-3 mb-2">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+              <div className="flex items-center space-x-2">
+                <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {material.title}
                 </h2>
-                <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getMaterialTypeColor(material.materialType)}`}>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getMaterialTypeColor(material.materialType)}`}>
                   {getMaterialTypeLabel(material.materialType)}
                 </span>
               </div>
-              <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 <span>{material.subjectCode}</span>
                 <span>•</span>
                 <span>{formatUploadDate(material.uploadDate)}</span>
                 <span>•</span>
                 <span>{material.uploaderRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'}</span>
               </div>
-              {material.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {material.description}
-                </p>
-              )}
             </div>
           </div>
           
-          <div className="flex items-center space-x-3 ml-4">
+          <div className="flex items-center space-x-1 ml-2">
             {/* Download Button */}
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-xl transition-colors"
+              className="inline-flex items-center space-x-1 px-2 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white text-xs font-medium rounded-md transition-colors"
             >
               {isDownloading ? (
                 <>
-                  <div className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Memuat turun...</span>
+                  <div className="w-2.5 h-2.5 border border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="hidden sm:inline">Muat turun...</span>
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  <span>Muat turun</span>
+                  <span className="hidden sm:inline">Muat turun</span>
                 </>
               )}
             </button>
@@ -142,9 +137,9 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
             >
-              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
