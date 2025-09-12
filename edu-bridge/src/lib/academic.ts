@@ -24,6 +24,7 @@ import type {
   MaterialUploadData,
   MaterialMetadata
 } from '@/types/academic';
+import type { User } from '@/types/user';
 
 // Global cache for programmes (rarely change)
 let programmesCache: Programme[] | null = null;
@@ -356,6 +357,129 @@ export async function getPendingMaterials(): Promise<Material[]> {
   }
 }
 
+// Lecturer Subject Management
+export async function getLecturerSubjects(lecturerId: string): Promise<string[]> {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', lecturerId));
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return userData.teachingSubjects || [];
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching lecturer subjects:', error);
+    return [];
+  }
+}
+
+export async function updateLecturerSubjects(lecturerId: string, subjectCodes: string[]): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', lecturerId), {
+      teachingSubjects: subjectCodes
+    });
+  } catch (error) {
+    console.error('Error updating lecturer subjects:', error);
+    throw error;
+  }
+}
+
+export async function getEligibleLecturers(programmeId: string, subjectCode: string): Promise<User[]> {
+  try {
+    // Get lecturers who teach this subject and programme
+    const usersRef = collection(db, 'users');
+    const lecturerQuery = query(
+      usersRef,
+      where('role', '==', 'lecturer'),
+      where('programmes', 'array-contains', programmeId),
+      where('teachingSubjects', 'array-contains', subjectCode)
+    );
+    
+    const querySnapshot = await getDocs(lecturerQuery);
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      uid: doc.id
+    }));
+  } catch (error) {
+    console.error('Error fetching eligible lecturers:', error);
+    return [];
+  }
+}
+
+// Lecturer-specific material approval functions
+export async function getPendingMaterialsForLecturer(lecturerId: string): Promise<Material[]> {
+  try {
+    // First get lecturer's teaching subjects
+    const teachingSubjects = await getLecturerSubjects(lecturerId);
+    
+    if (teachingSubjects.length === 0) {
+      return [];
+    }
+    
+    // Get all pending materials
+    const materialsRef = collection(db, 'materials');
+    const pendingQuery = query(
+      materialsRef,
+      where('approvalStatus', '==', 'pending'),
+      where('uploaderRole', '==', 'student'), // Only student uploads need lecturer approval
+      orderBy('uploadDate', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(pendingQuery);
+    const allPendingMaterials = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      materialId: doc.id
+    })) as Material[];
+    
+    // Filter materials by lecturer's teaching subjects
+    return allPendingMaterials.filter(material => 
+      teachingSubjects.includes(material.subjectCode)
+    );
+  } catch (error) {
+    console.error('Error fetching pending materials for lecturer:', error);
+    return [];
+  }
+}
+
+export async function approveMaterialByLecturer(
+  materialId: string, 
+  lecturerId: string, 
+  lecturerName: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'materials', materialId), {
+      approvalStatus: 'approved',
+      approvedBy: lecturerId,
+      approverName: lecturerName,
+      approverRole: 'lecturer',
+      approvedDate: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error approving material by lecturer:', error);
+    throw error;
+  }
+}
+
+export async function rejectMaterialByLecturer(
+  materialId: string, 
+  lecturerId: string, 
+  lecturerName: string,
+  reason: string
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'materials', materialId), {
+      approvalStatus: 'rejected',
+      approvedBy: lecturerId,
+      approverName: lecturerName,
+      approverRole: 'lecturer',
+      rejectionReason: reason,
+      approvedDate: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error rejecting material by lecturer:', error);
+    throw error;
+  }
+}
+
 // Update download count
 export async function incrementDownloadCount(materialId: string): Promise<void> {
   try {
@@ -389,5 +513,50 @@ export async function getPopularMaterials(limitCount: number = 10): Promise<Mate
   } catch (error) {
     console.error('Error fetching popular materials:', error);
     return [];
+  }
+}
+
+// Get lecturer dashboard statistics
+export async function getLecturerStats(lecturerId: string): Promise<{
+  materialsUploaded: number;
+  totalDownloads: number;
+  studentsServed: number;
+  pendingApprovals: number;
+}> {
+  try {
+    // Get lecturer's uploaded materials
+    const materialsQuery = query(
+      collection(db, 'materials'),
+      where('uploaderId', '==', lecturerId)
+    );
+    const materialsSnapshot = await getDocs(materialsQuery);
+    const materials = materialsSnapshot.docs.map(doc => doc.data() as Material);
+    
+    // Calculate total downloads
+    const totalDownloads = materials.reduce((sum, material) => 
+      sum + (material.downloadCount || 0), 0
+    );
+    
+    // Get pending approvals for lecturer
+    const pendingMaterials = await getPendingMaterialsForLecturer(lecturerId);
+    
+    // Estimate students served (unique downloaders would require more complex tracking)
+    // For now, use a rough estimate based on downloads
+    const studentsServed = Math.ceil(totalDownloads * 0.7); // Rough estimate
+    
+    return {
+      materialsUploaded: materials.length,
+      totalDownloads,
+      studentsServed,
+      pendingApprovals: pendingMaterials.length
+    };
+  } catch (error) {
+    console.error('Error fetching lecturer stats:', error);
+    return {
+      materialsUploaded: 0,
+      totalDownloads: 0,
+      studentsServed: 0,
+      pendingApprovals: 0
+    };
   }
 }

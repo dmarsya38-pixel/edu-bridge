@@ -47,7 +47,7 @@ export function validateFile(file: File): FileValidationResult {
   }
 
   // Check file type
-  if (!ALLOWED_FILE_TYPES.includes(file.type as any)) {
+  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
     return {
       isValid: false,
       error: {

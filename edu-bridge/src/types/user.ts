@@ -68,6 +68,11 @@ export interface UserProfile {
     displayName?: string;     // Auto-generated: "Ahmad (DBS 2023)"
   };
   
+  // Lecturer-specific fields (only for lecturers)
+  teachingSubjects?: string[];    // Subject codes lecturer teaches
+  programmes?: string[];          // Programmes lecturer can teach
+  department?: string;            // Department lecturer belongs to
+  
   // Settings
   preferences: {
     theme?: 'light' | 'dark' | 'system';
@@ -89,6 +94,11 @@ export interface User {
   avatar?: string;
   displayName?: string;
   isVerified?: boolean;
+  
+  // Lecturer-specific fields
+  teachingSubjects?: string[];    // Subject codes lecturer teaches ["DPP20023", "DBS2024"]
+  programmes?: string[];          // Programmes lecturer can teach ["DBS", "DRM"] 
+  department?: string;            // "Commerce"
 }
 
 // Auth context state

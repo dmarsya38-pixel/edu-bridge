@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
+import { LecturerMaterialApproval } from '@/components/lecturer/LecturerMaterialApproval';
+import { getPendingMaterialsForLecturer, getProgrammes, getLecturerStats } from '@/lib/academic';
 import type { User } from '@/types/user';
+import type { Programme } from '@/types/academic';
 
 interface LecturerDashboardProps {
   user: User;
@@ -11,13 +14,78 @@ interface LecturerDashboardProps {
 export function LecturerDashboard({ user }: LecturerDashboardProps) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [programmes, setProgrammes] = useState<Programme[]>([]);
+  const [lecturerProgramme, setLecturerProgramme] = useState<Programme | null>(null);
+  const [stats, setStats] = useState({
+    materialsUploaded: 0,
+    totalDownloads: 0,
+    studentsServed: 0,
+    pendingApprovals: 0
+  });
+
+  useEffect(() => {
+    loadPendingCount();
+    loadProgrammeData();
+    loadStats();
+  }, [user]);
+
+  const loadProgrammeData = async () => {
+    if (!user || !user.programmes || user.programmes.length === 0) return;
+    
+    try {
+      const allProgrammes = await getProgrammes();
+      setProgrammes(allProgrammes);
+      
+      // Find the lecturer's programme
+      const userProgramme = allProgrammes.find(p => 
+        user.programmes && user.programmes.includes(p.programmeCode || p.programmeId)
+      );
+      setLecturerProgramme(userProgramme || null);
+    } catch (error) {
+      console.error('Error loading programme data:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    if (!user) return;
+    
+    try {
+      const lecturerStats = await getLecturerStats(user.uid);
+      setStats(lecturerStats);
+      setPendingCount(lecturerStats.pendingApprovals);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadPendingCount = async () => {
+    if (!user) return;
+    
+    try {
+      const materials = await getPendingMaterialsForLecturer(user.uid);
+      setPendingCount(materials.length);
+    } catch (error) {
+      console.error('Error loading pending count:', error);
+    }
+  };
 
   const handleUploadSuccess = (materialId: string) => {
     setUploadSuccess(materialId);
     setShowUploadModal(false);
     
+    // Refresh stats after upload
+    loadStats();
+    
     // Clear success message after 3 seconds
     setTimeout(() => setUploadSuccess(null), 3000);
+  };
+
+  const handleApprovalModalClose = () => {
+    setShowApprovalModal(false);
+    // Refresh stats when approval modal closes
+    loadStats();
   };
   return (
     <>
@@ -48,13 +116,17 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
         {/* Lecturer Info */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Department</h3>
-            <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">Commerce Department</p>
+            <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Programme</h3>
+            <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+              {lecturerProgramme ? lecturerProgramme.programmeName : 'Loading...'}
+            </p>
           </div>
           
           <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
-            <h3 className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">Institution</h3>
-            <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">Politeknik Nilai</p>
+            <h3 className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-1">Department</h3>
+            <p className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">
+              {lecturerProgramme ? lecturerProgramme.department : user.department || 'Commerce Department'}
+            </p>
           </div>
         </div>
       </div>
@@ -89,7 +161,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">15</p>
+            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{stats.materialsUploaded}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">Materials Uploaded</p>
           </div>
         </div>
@@ -101,7 +173,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
             </div>
-            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">248</p>
+            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{stats.studentsServed}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">Students Served</p>
           </div>
         </div>
@@ -113,7 +185,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4" />
               </svg>
             </div>
-            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">1.2k</p>
+            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{stats.totalDownloads > 1000 ? (stats.totalDownloads / 1000).toFixed(1) + 'k' : stats.totalDownloads}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">Total Downloads</p>
           </div>
         </div>
@@ -148,6 +220,33 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
           >
             Upload New Material
+          </button>
+        </div>
+
+        {/* Review Student Materials */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Review Student Materials</h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+            Review and approve student-uploaded materials for subjects you teach.
+          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Pending materials: <span className="font-semibold text-orange-600 dark:text-orange-400">{pendingCount}</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowApprovalModal(true)}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center space-x-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span>Review Materials</span>
           </button>
         </div>
 
@@ -238,6 +337,12 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
           </div>
         </div>
       )}
+
+      {/* Lecturer Material Approval Modal */}
+      <LecturerMaterialApproval
+        isOpen={showApprovalModal}
+        onClose={handleApprovalModalClose}
+      />
     </>
   );
 }

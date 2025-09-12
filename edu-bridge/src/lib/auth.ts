@@ -270,7 +270,12 @@ export async function getUserProfile(uid: string): Promise<User | null> {
       entryYear: userData.entryYear,
       avatar: userData.profile.avatar,
       displayName: userData.profile.displayName,
-      isVerified: userData.isVerified
+      isVerified: userData.isVerified,
+      
+      // Include lecturer-specific fields if they exist
+      ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
+      ...(userData.programmes && { programmes: userData.programmes }),
+      ...(userData.department && { department: userData.department })
     };
 
   } catch (error) {

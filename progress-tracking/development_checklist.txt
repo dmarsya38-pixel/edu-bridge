@@ -17,6 +17,7 @@
 ### Key Features
 - [x] Student registration with verification process (auto-verify with valid matric ID)
 - [x] Lecturer registration with institutional email verification
+- [x] **ENHANCED: Lecturer registration with programme and subject selection** (September 12, 2025)
 - [x] Login/logout functionality
 - [x] Role-based dashboard routing (Student/Lecturer/Admin dashboards)
 - [x] Mobile-responsive navigation
@@ -53,13 +54,14 @@
 - [x] File upload with validation (PDF, DOC, PPT up to 10MB)
 - [x] Subject-based content organization by programme/semester
 - [x] Basic search and filtering by multiple criteria
-- [x] Admin content approval workflow (auto-approve lecturers, manual approve students)
+- [x] **REPLACED: Lecturer-based approval workflow** (lecturers approve student materials for subjects they teach) - September 12, 2025
 - [x] Material download tracking and analytics
 - [x] **NEW: Hierarchical material browsing** (Programme → Semester → Subject → Materials)
 - [x] **NEW: Academic year grouping** (Materials organized by upload year)
 - [x] **NEW: Material type filtering** (All, Exam Papers, Answer Schemes, Notes)
 - [x] **NEW: PDF preview modal** (Full-screen viewing with 95vh height)
 - [x] **NEW: Download analytics tracking** (Increments download counters)
+- [x] **NEW: Lecturer material approval system** (lecturers review student uploads for their subjects)
 
 ### Technical Tasks
 - [x] Create Firebase Firestore data models (User, Programme, Subject, Material)
@@ -74,6 +76,9 @@
 - [x] **NEW: MaterialsList component** (Year-grouped material display with filtering)
 - [x] **NEW: DocumentViewer component** (PDF preview modal with download functionality)
 - [x] **NEW: StudentDashboard integration** (Complete navigation flow implementation)
+- [x] **NEW: LecturerMaterialApproval component** (Material review interface for lecturers) - September 12, 2025
+- [x] **NEW: Lecturer dashboard with real programme data** (Dynamic programme info display) - September 12, 2025
+- [x] **NEW: Lecturer statistics system** (Real-time stats for uploaded materials, downloads, students served)
 
 ---
 
@@ -108,10 +113,12 @@
 
 ### Current Implementation Status:
 - [x] Firebase Security Rules (Firestore and Storage)
+- [x] **ENHANCED: Firestore rules for lecturer registration** (unauthenticated access to programmes/subjects) - September 12, 2025
 - [x] Role-based access control
 - [x] Input validation and sanitization
 - [x] Secure file upload with type/size restrictions
 - [x] Auto-verification system for student matric IDs
+- [x] **NEW: Lecturer-based approval security** (lecturers can only approve materials for their subjects)
 - [ ] Advanced monitoring and logging
 - [ ] Comprehensive audit trails
 

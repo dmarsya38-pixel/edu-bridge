@@ -4,11 +4,10 @@ import React, { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadMaterialFile, formatFileSize, getFileTypeIcon, validateFile } from '@/lib/storage';
 import { createMaterial } from '@/lib/academic';
-import { getProgrammes, getSubjectsByProgramme, getSubjectsBySemester } from '@/lib/academic';
+import { getProgrammes, getSubjectsBySemester } from '@/lib/academic';
 import type { 
   Programme, 
   Subject, 
-  MaterialType, 
   MaterialMetadata 
 } from '@/types/academic';
 import type { FileUploadProgress } from '@/lib/storage';
@@ -84,6 +83,11 @@ export function MaterialUploadForm({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Prevent students from changing material type or programme
+    if (isStudentUser && (name === 'materialType' || name === 'programmeId')) {
+      return;
+    }
     
     const processedValue = name === 'semester' ? parseInt(value, 10) : value;
     console.log(`📝 Form field changed: ${name}=${processedValue} (type: ${typeof processedValue})`);
@@ -174,6 +178,16 @@ export function MaterialUploadForm({
       newErrors.programmeId = 'Programme is required';
     }
 
+    // Ensure students can only upload to their own programme
+    if (isStudentUser && user?.program && formData.programmeId !== user.program) {
+      newErrors.programmeId = 'Students can only upload materials to their own programme';
+    }
+
+    // Ensure students can only upload notes
+    if (isStudentUser && formData.materialType !== 'note') {
+      newErrors.materialType = 'Students can only upload notes. Exam papers and answer schemes are restricted to lecturers.';
+    }
+
     if (!formData.subjectCode) {
       newErrors.subjectCode = 'Subject is required';
     }
@@ -250,6 +264,8 @@ export function MaterialUploadForm({
   const getCurrentProgramme = () => {
     return programmes.find(p => p.programmeCode === formData.programmeId);
   };
+
+  const isStudentUser = user?.role === 'student';
 
   const getSubjectsForSemester = () => {
     // No need to filter anymore - subjects are already loaded for the current semester
@@ -406,19 +422,34 @@ export function MaterialUploadForm({
             <label htmlFor="materialType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Material Type *
             </label>
-            <select
-              id="materialType"
-              name="materialType"
-              value={formData.materialType}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {Object.entries(MATERIAL_TYPES).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            {isStudentUser ? (
+              <div>
+                <input
+                  type="text"
+                  id="materialType"
+                  value="Notes"
+                  disabled
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+                />
+              </div>
+            ) : (
+              <select
+                id="materialType"
+                name="materialType"
+                value={formData.materialType}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {Object.entries(MATERIAL_TYPES).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
+            {errors.materialType && (
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.materialType}</p>
+            )}
           </div>
 
           {/* Programme */}
@@ -426,20 +457,35 @@ export function MaterialUploadForm({
             <label htmlFor="programmeId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Programme *
             </label>
-            <select
-              id="programmeId"
-              name="programmeId"
-              value={formData.programmeId}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select Programme</option>
-              {programmes.map((programme) => (
-                <option key={programme.programmeCode} value={programme.programmeCode}>
-                  {programme.programmeCode} - {programme.programmeName}
-                </option>
-              ))}
-            </select>
+            {isStudentUser ? (
+              <div>
+                <input
+                  type="text"
+                  id="programmeId"
+                  value={getCurrentProgramme() ? `${getCurrentProgramme()!.programmeCode} - ${getCurrentProgramme()!.programmeName}` : formData.programmeId}
+                  disabled
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+                />
+              </div>
+            ) : (
+              <select
+                id="programmeId"
+                name="programmeId"
+                value={formData.programmeId}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select Programme</option>
+                {programmes.map((programme) => (
+                  <option key={programme.programmeCode} value={programme.programmeCode}>
+                    {programme.programmeCode} - {programme.programmeName}
+                  </option>
+                ))}
+              </select>
+            )}
+            {errors.programmeId && (
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.programmeId}</p>
+            )}
           </div>
 
           {/* Semester */}

@@ -17,15 +17,15 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
-    // Programmes - readable by all authenticated users, writable by admins only
+    // Programmes - readable by all users (including during registration), writable by admins only
     match /programmes/{programmeId} {
-      allow read: if request.auth != null;
+      allow read: if true; // Allow unauthenticated read for registration forms
       allow write: if request.auth != null && isAdmin();
     }
 
-    // Subjects - readable by all authenticated users, writable by admins only  
+    // Subjects - readable by all users (including during registration), writable by admins only  
     match /subjects/{subjectId} {
-      allow read: if request.auth != null;
+      allow read: if true; // Allow unauthenticated read for registration forms
       allow write: if request.auth != null && isAdmin();
     }
 

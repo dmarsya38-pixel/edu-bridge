@@ -44,9 +44,11 @@ export interface Material {
   uploaderRole: 'student' | 'lecturer';
   uploadDate: Timestamp;
   
-  // Simple approval workflow
+  // Lecturer approval workflow
   approvalStatus: 'pending' | 'approved' | 'rejected';
-  approvedBy?: string;        // Admin who approved
+  approvedBy?: string;        // Lecturer ID who approved (changed from admin)
+  approverName?: string;      // Lecturer name for display
+  approverRole?: 'lecturer';  // Track approver type
   approvedDate?: Timestamp;
   rejectionReason?: string;
   

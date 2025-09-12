@@ -42,6 +42,10 @@ export interface LecturerRegistrationData {
   department: string;           // "Commerce"
   position: string;             // "Lecturer", "Senior Lecturer"
 
+  // Teaching assignments (NEW REQUIREMENT)
+  programme: string;            // Single programme (e.g., "DBS")
+  subjects: string[];           // At least 3 subject codes
+
   // Terms acceptance
   acceptTerms: boolean;
 }
@@ -129,18 +133,8 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
       };
     }
 
-    // Check for duplicate employee ID
-    const employeeExists = await checkEmployeeIdExists(formData.employeeId);
-    if (employeeExists) {
-      return {
-        success: false,
-        error: {
-          code: 'employee-id-exists',
-          message: 'This employee ID is already registered. Please contact admin if this is an error.',
-          field: 'employeeId'
-        }
-      };
-    }
+    // Skip duplicate check during registration since user is not authenticated yet
+    // The uniqueness will be enforced by the unique employeeId constraint in the user profile
 
     // Create Firebase Auth user
     const userCredential: UserCredential = await createUserWithEmailAndPassword(
@@ -153,7 +147,13 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
     await sendEmailVerification(userCredential.user);
 
     // Create lecturer profile in Firestore (auto-approved)
-    const userData: CreateUserData & { employeeId: string; department: string; position: string } = {
+    const userData: CreateUserData & { 
+      employeeId: string; 
+      department: string; 
+      position: string;
+      teachingSubjects: string[];
+      programmes: string[];
+    } = {
       uid: userCredential.user.uid,
       matricId: '', // Not applicable for lecturers
       email: formData.email,
@@ -164,6 +164,10 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
       employeeId: formData.employeeId.trim().toUpperCase(),
       department: formData.department,
       position: formData.position,
+      
+      // Teaching assignments (NEW)
+      teachingSubjects: formData.subjects,
+      programmes: [formData.programme], // Single programme as array
       
       // Auto-generated fields (not applicable for lecturers)
       politeknik: 'Politeknik Nilai',

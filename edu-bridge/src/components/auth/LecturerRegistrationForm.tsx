@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { registerLecturer, validateEmployeeId, validateInstitutionalEmail } from '@/lib/lecturer-auth';
+import { getProgrammes, getSubjectsBySemester } from '@/lib/academic';
 import type { LecturerRegistrationData } from '@/lib/lecturer-auth';
+import type { Programme, Subject } from '@/types/academic';
 
 interface LecturerRegistrationFormProps {
   onSwitchToStudent: () => void;
@@ -22,12 +24,68 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
     phoneNumber: '',
     department: 'Commerce',
     position: 'Lecturer',
+    programme: '',
+    subjects: [],
     acceptTerms: false
   });
 
   const [status, setStatus] = useState<'idle' | 'registering' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  
+  // Data for programme and subject selection
+  const [programmes, setProgrammes] = useState<Programme[]>([]);
+  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
+
+  // Load programmes on mount
+  useEffect(() => {
+    loadProgrammes();
+  }, []);
+
+  // Load subjects when programme changes
+  useEffect(() => {
+    if (formData.programme) {
+      loadSubjectsForProgramme(formData.programme);
+    } else {
+      setAvailableSubjects([]);
+      // Clear selected subjects when programme changes
+      setFormData(prev => ({ ...prev, subjects: [] }));
+    }
+  }, [formData.programme]);
+
+  const loadProgrammes = async () => {
+    try {
+      const programmeList = await getProgrammes();
+      setProgrammes(programmeList);
+    } catch (error) {
+      console.error('Error loading programmes:', error);
+    }
+  };
+
+  const loadSubjectsForProgramme = async (programmeId: string) => {
+    try {
+      // Load subjects for all semesters of the selected programme
+      const allSubjects: Subject[] = [];
+      
+      for (let semester = 1; semester <= 5; semester++) {
+        const semesterSubjects = await getSubjectsBySemester(programmeId, semester);
+        allSubjects.push(...semesterSubjects);
+      }
+      
+      setAvailableSubjects(allSubjects);
+      
+      // Clear selected subjects if they're not in the new programme
+      setFormData(prev => ({
+        ...prev,
+        subjects: prev.subjects.filter(subjectCode => 
+          allSubjects.some(subject => subject.subjectCode === subjectCode)
+        )
+      }));
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+      setAvailableSubjects([]);
+    }
+  };
 
   const validateField = (name: string, value: string | boolean | string[]) => {
     let error = '';
@@ -71,6 +129,19 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
         }
         break;
 
+      case 'programme':
+        if (!(value as string).trim()) {
+          error = 'Please select a programme';
+        }
+        break;
+
+      case 'subjects':
+        const subjects = value as string[];
+        if (subjects.length < 3) {
+          error = 'Please select at least 3 subjects';
+        }
+        break;
+
       case 'acceptTerms':
         if (!value) {
           error = 'You must accept the terms and conditions';
@@ -96,6 +167,26 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
       ...prev,
       [name]: error
     }));
+  };
+
+  const handleSubjectChange = (subjectCode: string, isChecked: boolean) => {
+    setFormData(prev => {
+      const newSubjects = isChecked 
+        ? [...prev.subjects, subjectCode]
+        : prev.subjects.filter(code => code !== subjectCode);
+      
+      // Validate subjects after change
+      const error = validateField('subjects', newSubjects);
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        subjects: error
+      }));
+      
+      return {
+        ...prev,
+        subjects: newSubjects
+      };
+    });
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -335,6 +426,73 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
           </select>
         </div>
 
+        {/* Programme Selection */}
+        <div>
+          <label htmlFor="programme" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Programme *
+          </label>
+          <select
+            id="programme"
+            name="programme"
+            value={formData.programme}
+            onChange={handleInputChange}
+            onBlur={handleBlur}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Select a Programme</option>
+            {programmes.map((programme) => (
+              <option key={programme.programmeCode} value={programme.programmeCode}>
+                {programme.programmeCode} - {programme.programmeName}
+              </option>
+            ))}
+          </select>
+          {touched.programme && errors.programme && (
+            <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.programme}</p>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Choose the programme you will be teaching in
+          </p>
+        </div>
+
+        {/* Subject Selection */}
+        {formData.programme && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Teaching Subjects * (Select at least 3)
+            </label>
+            <div className="border border-gray-300 dark:border-gray-600 rounded-xl p-4 bg-white dark:bg-gray-800 max-h-60 overflow-y-auto">
+              {availableSubjects.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Loading subjects...</p>
+              ) : (
+                <div className="space-y-2">
+                  {availableSubjects.map((subject) => (
+                    <div key={subject.subjectCode} className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        id={subject.subjectCode}
+                        checked={formData.subjects.includes(subject.subjectCode)}
+                        onChange={(e) => handleSubjectChange(subject.subjectCode, e.target.checked)}
+                        className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor={subject.subjectCode} className="text-sm text-gray-700 dark:text-gray-300 flex-1">
+                        <span className="font-medium">{subject.subjectCode}</span> - {subject.subjectName}
+                        <span className="text-xs text-gray-500 dark:text-gray-400 block">
+                          Semester {subject.semester}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {errors.subjects && (
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.subjects}</p>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Selected: {formData.subjects.length} subject{formData.subjects.length !== 1 ? 's' : ''} (minimum 3 required)
+            </p>
+          </div>
+        )}
 
         {/* Terms and Conditions */}
         <div className="flex items-start space-x-2">
