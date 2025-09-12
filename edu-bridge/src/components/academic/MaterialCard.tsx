@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { incrementDownloadCount, getComments } from '@/lib/academic';
 import { CommentSection } from './CommentSection';
 import type { Material } from '@/types/academic';
+import type { Timestamp } from 'firebase/firestore';
 
 interface MaterialCardProps {
   material: Material;
@@ -36,14 +37,14 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
     }
   };
 
-  const loadCommentCount = async () => {
+  const loadCommentCount = useCallback(async () => {
     try {
       const comments = await getComments(material.materialId);
       setCommentCount(comments.length);
     } catch (error) {
       console.error('Error loading comment count:', error);
     }
-  };
+  }, [material.materialId]);
 
   const toggleComments = () => {
     setShowComments(!showComments);
@@ -52,7 +53,7 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
   // Load comment count when component mounts
   React.useEffect(() => {
     loadCommentCount();
-  }, []);
+  }, [loadCommentCount]);
 
   const handlePreview = () => {
     if (onPreview) {
@@ -125,9 +126,16 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatUploadDate = (timestamp: any) => {
+  const formatUploadDate = (timestamp: Timestamp | Date | number | null) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    let date: Date;
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      date = timestamp.toDate();
+    }
     return date.toLocaleDateString('ms-MY', {
       year: 'numeric',
       month: 'short',

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { Comment } from '@/types/academic';
+import type { Timestamp } from 'firebase/firestore';
 
 interface CommentProps {
   comment: Comment;
@@ -27,9 +28,16 @@ export function Comment({ comment, currentUserId, onDelete, materialUploaderId }
     }
   };
 
-  const formatCommentDate = (timestamp: any) => {
+  const formatCommentDate = (timestamp: Timestamp | Date | number | null) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    let date: Date;
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      date = timestamp.toDate();
+    }
     return date.toLocaleDateString('ms-MY', {
       year: 'numeric',
       month: 'short',

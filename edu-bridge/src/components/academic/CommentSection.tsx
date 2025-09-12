@@ -49,7 +49,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
     
     // Validate files
     const validFiles = files.filter(file => {
-      if (!COMMENT_ALLOWED_FILE_TYPES.includes(file.type as any)) {
+      if (!COMMENT_ALLOWED_FILE_TYPES.includes(file.type as typeof COMMENT_ALLOWED_FILE_TYPES[number])) {
         alert(`File type ${file.type} is not allowed. Allowed types: PDF, DOC, DOCX, PNG, JPG`);
         return false;
       }

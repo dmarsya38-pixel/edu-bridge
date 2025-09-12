@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { incrementDownloadCount } from '@/lib/academic';
 import type { Material } from '@/types/academic';
+import type { Timestamp } from 'firebase/firestore';
 
 interface DocumentViewerProps {
   material: Material;
@@ -72,9 +73,16 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
     }
   };
 
-  const formatUploadDate = (timestamp: any) => {
+  const formatUploadDate = (timestamp: Timestamp | Date | number | null) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    let date: Date;
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      date = timestamp.toDate();
+    }
     return date.toLocaleDateString('ms-MY', {
       year: 'numeric',
       month: 'long',

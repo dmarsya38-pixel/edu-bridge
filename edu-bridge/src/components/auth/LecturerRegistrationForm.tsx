@@ -254,7 +254,7 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
           setErrors({ general: result.error?.message || 'Registration failed' });
         }
       }
-    } catch (error) {
+    } catch {
       setStatus('error');
       setErrors({ general: 'Registration failed. Please try again.' });
     }

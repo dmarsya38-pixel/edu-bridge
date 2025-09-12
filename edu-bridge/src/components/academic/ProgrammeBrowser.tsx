@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getProgrammes, getSubjectsByProgramme } from '@/lib/academic';
 import type { Programme, Subject } from '@/types/academic';
 import { SEMESTERS } from '@/types/academic';
@@ -21,23 +21,11 @@ export function ProgrammeBrowser({
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [currentProgramme, setCurrentProgramme] = useState<string>(selectedProgrammeId || '');
-  const [currentSemester, setCurrentSemester] = useState<number>(selectedSemester || 1);
+  const [, setCurrentSemester] = useState<number>(selectedSemester || 1);
   const [loading, setLoading] = useState(true);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
 
-  // Load programmes on mount
-  useEffect(() => {
-    loadProgrammes();
-  }, []);
-
-  // Load subjects when programme changes
-  useEffect(() => {
-    if (currentProgramme) {
-      loadSubjects(currentProgramme);
-    }
-  }, [currentProgramme]);
-
-  const loadProgrammes = async () => {
+  const loadProgrammes = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getProgrammes();
@@ -52,7 +40,7 @@ export function ProgrammeBrowser({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentProgramme]);
 
   const loadSubjects = async (programmeId: string) => {
     try {
@@ -80,6 +68,18 @@ export function ProgrammeBrowser({
   const getSubjectsForSemester = (semester: number) => {
     return subjects.filter(subject => subject.semester === semester);
   };
+
+  // Load programmes on mount
+  useEffect(() => {
+    loadProgrammes();
+  }, [loadProgrammes]);
+
+  // Load subjects when programme changes
+  useEffect(() => {
+    if (currentProgramme) {
+      loadSubjects(currentProgramme);
+    }
+  }, [currentProgramme]);
 
   if (loading) {
     return (

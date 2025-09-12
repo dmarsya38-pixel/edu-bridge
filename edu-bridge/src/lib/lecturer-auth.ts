@@ -23,7 +23,6 @@ import { auth, db } from './firebase';
 import type { 
   AuthError,
   RegistrationResponse,
-  UserProfile,
   CreateUserData
 } from '@/types/user';
 import { AUTH_ERROR_CODES } from '@/types/user';

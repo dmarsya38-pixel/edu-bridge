@@ -116,7 +116,7 @@ export default function LoginForm({ onSuccess, onRegisterRedirect }: LoginFormPr
           }));
         }
       }
-    } catch (error) {
+    } catch {
       setStatus('error');
       setValidationState(prev => ({
         ...prev,

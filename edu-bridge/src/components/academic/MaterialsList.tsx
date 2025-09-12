@@ -6,6 +6,7 @@ import { MaterialCard } from './MaterialCard';
 import { getMaterials } from '@/lib/academic';
 import type { Material, MaterialFilter } from '@/types/academic';
 import type { Subject } from '@/types/academic';
+import { Timestamp } from 'firebase/firestore';
 
 interface MaterialsListProps {
   subject: Subject;
@@ -64,7 +65,15 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
     const grouped: MaterialsByYear = {};
 
     materials.forEach(material => {
-      const uploadDate = (material.uploadDate as any)?.toDate ? (material.uploadDate as any).toDate() : new Date(material.uploadDate as any);
+      let uploadDate: Date;
+      const timestamp = material.uploadDate as Timestamp | Date | number;
+      if (timestamp instanceof Timestamp) {
+        uploadDate = timestamp.toDate();
+      } else if (timestamp instanceof Date) {
+        uploadDate = timestamp;
+      } else {
+        uploadDate = new Date(timestamp);
+      }
       const year = uploadDate.getFullYear().toString();
 
       if (!grouped[year]) {
@@ -76,8 +85,18 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
     // Sort materials within each year by upload date (newest first)
     Object.keys(grouped).forEach(year => {
       grouped[year].sort((a, b) => {
-        const dateA = (a.uploadDate as any)?.toDate ? (a.uploadDate as any).toDate() : new Date(a.uploadDate as any);
-        const dateB = (b.uploadDate as any)?.toDate ? (b.uploadDate as any).toDate() : new Date(b.uploadDate as any);
+        const timestampA = a.uploadDate as Timestamp | Date | number;
+        const dateA = timestampA instanceof Timestamp 
+          ? timestampA.toDate() 
+          : timestampA instanceof Date 
+          ? timestampA 
+          : new Date(timestampA);
+        const timestampB = b.uploadDate as Timestamp | Date | number;
+        const dateB = timestampB instanceof Timestamp 
+          ? timestampB.toDate() 
+          : timestampB instanceof Date 
+          ? timestampB 
+          : new Date(timestampB);
         return dateB.getTime() - dateA.getTime();
       });
     });

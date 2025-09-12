@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   getPendingMaterialsForLecturer, 
@@ -9,6 +9,7 @@ import {
 } from '@/lib/academic';
 import { formatFileSize, getFileTypeIcon } from '@/lib/storage';
 import type { Material } from '@/types/academic';
+import type { Timestamp } from 'firebase/firestore';
 
 interface LecturerMaterialApprovalProps {
   isOpen: boolean;
@@ -23,13 +24,7 @@ export function LecturerMaterialApproval({ isOpen, onClose }: LecturerMaterialAp
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && user) {
-      loadPendingMaterials();
-    }
-  }, [isOpen, user]);
-
-  const loadPendingMaterials = async () => {
+  const loadPendingMaterials = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -41,7 +36,13 @@ export function LecturerMaterialApproval({ isOpen, onClose }: LecturerMaterialAp
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      loadPendingMaterials();
+    }
+  }, [isOpen, user, loadPendingMaterials]);
 
   const handleApprove = async (material: Material) => {
     if (!user) return;
@@ -73,9 +74,16 @@ export function LecturerMaterialApproval({ isOpen, onClose }: LecturerMaterialAp
     }
   };
 
-  const formatUploadDate = (timestamp: any) => {
+  const formatUploadDate = (timestamp: Timestamp | Date | number | null) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    let date: Date;
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      date = timestamp.toDate();
+    }
     return date.toLocaleDateString('en-MY', {
       year: 'numeric',
       month: 'short',

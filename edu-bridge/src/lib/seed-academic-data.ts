@@ -1,6 +1,5 @@
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Programme, Subject } from '@/types/academic';
 
 // Initial programmes data
 const INITIAL_PROGRAMMES = [

@@ -47,7 +47,7 @@ export function validateFile(file: File): FileValidationResult {
   }
 
   // Check file type
-  if (!COMMENT_ALLOWED_FILE_TYPES.includes(file.type as any)) {
+  if (!COMMENT_ALLOWED_FILE_TYPES.includes(file.type as typeof COMMENT_ALLOWED_FILE_TYPES[number])) {
     return {
       isValid: false,
       error: {

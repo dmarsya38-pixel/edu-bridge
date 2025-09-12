@@ -3,8 +3,7 @@ import {
   doc,
   getDocs,
   getDoc,
-  setDoc,
-  addDoc,
+    addDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -12,19 +11,16 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-  Timestamp,
-  getDocsFromServer,
-  writeBatch
+    writeBatch
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from './firebase';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import type {
   Programme,
   Subject,
   Material,
   MaterialFilter,
-  MaterialUploadData,
   MaterialMetadata,
   Comment,
   CommentCreateData,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -11,6 +11,7 @@ import {
 } from '@/lib/academic';
 import { navigateToMaterialFromNotification } from '@/lib/dashboard-navigation';
 import type { CommentNotification } from '@/types/academic';
+import type { Timestamp } from 'firebase/firestore';
 
 interface NotificationCenterProps {
   onClose?: () => void;
@@ -24,7 +25,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -41,13 +42,13 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (isOpen) {
       loadNotifications();
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, loadNotifications]);
 
   const handleNotificationClick = async (notification: CommentNotification) => {
     if (!notification.isRead) {
@@ -89,9 +90,16 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
     }
   };
 
-  const formatNotificationDate = (timestamp: any) => {
+  const formatNotificationDate = (timestamp: Timestamp | Date | number | null) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    let date: Date;
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      date = timestamp.toDate();
+    }
     const now = new Date();
     const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
@@ -191,10 +199,10 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
                           </span>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          commented on your material "{notification.materialTitle}"
+                          commented on your material &ldquo;{notification.materialTitle}&rdquo;
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                          "{notification.commentContent}"
+                          &ldquo;{notification.commentContent}&rdquo;
                         </p>
                       </div>
                       {!notification.isRead && (

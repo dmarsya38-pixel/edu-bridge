@@ -179,7 +179,7 @@ export default function RegistrationForm({ onSuccess, onLoginRedirect, onSwitchT
           }));
         }
       }
-    } catch (error) {
+    } catch {
       setStatus('error');
       setValidationState(prev => ({
         ...prev,

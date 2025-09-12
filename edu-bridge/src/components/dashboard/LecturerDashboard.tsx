@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
 import { LecturerMaterialApproval } from '@/components/lecturer/LecturerMaterialApproval';
 import { getPendingMaterialsForLecturer, getProgrammes, getLecturerStats } from '@/lib/academic';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { User } from '@/types/user';
 import type { Programme } from '@/types/academic';
 
@@ -18,7 +16,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [programmes, setProgrammes] = useState<Programme[]>([]);
+  const [, setProgrammes] = useState<Programme[]>([]);
   const [lecturerProgramme, setLecturerProgramme] = useState<Programme | null>(null);
   const [programmeLoading, setProgrammeLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -28,55 +26,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     pendingApprovals: 0
   });
 
-  useEffect(() => {
-    if (user) {
-      // For lecturers, always load programme data first to prevent "No programme assigned" flash
-      if (user.role === 'lecturer') {
-        if (!user.programmes || user.programmes.length === 0) {
-          console.log('⚠️  Lecturer missing programme data - needs re-registration');
-          console.log('🔍 Current user data:', {
-            uid: user.uid,
-            department: user.department,
-            programmes: user.programmes,
-            program: user.program,
-            teachingSubjects: user.teachingSubjects
-          });
-        }
-        
-        // Load programme data immediately to avoid flash of "No programme assigned"
-        loadProgrammeData();
-        loadPendingCount();
-        loadStats();
-      }
-    }
-  }, [user]);
-
-  const migrateLecturerData = async () => {
-    if (!user) return;
-    
-    try {
-      // Don't auto-migrate - this could assign wrong programme!
-      console.log('❌ Lecturer missing programme data. Please re-register with correct programme selection.');
-      console.log('🔍 Current user data:', {
-        uid: user.uid,
-        department: user.department,
-        programmes: user.programmes,
-        teachingSubjects: user.teachingSubjects
-      });
-      
-      // Just continue with normal loading without migration
-      loadPendingCount();
-      loadProgrammeData(); 
-      loadStats();
-    } catch (error) {
-      console.error('❌ Error checking lecturer data:', error);
-      loadPendingCount();
-      loadProgrammeData();
-      loadStats();
-    }
-  };
-
-  const loadProgrammeData = async () => {
+  const loadProgrammeData = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -143,9 +93,9 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     } finally {
       setProgrammeLoading(false);
     }
-  };
+  }, [user]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -155,9 +105,9 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, [user]);
 
-  const loadPendingCount = async () => {
+  const loadPendingCount = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -166,7 +116,30 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     } catch (error) {
       console.error('Error loading pending count:', error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      // For lecturers, always load programme data first to prevent "No programme assigned" flash
+      if (user.role === 'lecturer') {
+        if (!user.programmes || user.programmes.length === 0) {
+          console.log('⚠️  Lecturer missing programme data - needs re-registration');
+          console.log('🔍 Current user data:', {
+            uid: user.uid,
+            department: user.department,
+            programmes: user.programmes,
+            program: user.program,
+            teachingSubjects: user.teachingSubjects
+          });
+        }
+        
+        // Load programme data immediately to avoid flash of "No programme assigned"
+        loadProgrammeData();
+        loadPendingCount();
+        loadStats();
+      }
+    }
+  }, [user, loadProgrammeData, loadStats, loadPendingCount]);
 
   const handleUploadSuccess = (materialId: string) => {
     setUploadSuccess(materialId);
@@ -184,6 +157,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     // Refresh stats when approval modal closes
     loadStats();
   };
+
   return (
     <>
       {/* Welcome Section */}
