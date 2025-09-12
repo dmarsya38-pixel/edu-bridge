@@ -73,7 +73,7 @@ export function LecturerMaterialApproval({ isOpen, onClose }: LecturerMaterialAp
     }
   };
 
-  const formatUploadDate = (timestamp: unknown) => {
+  const formatUploadDate = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('en-MY', {

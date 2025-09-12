@@ -72,7 +72,7 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
     }
   };
 
-  const formatUploadDate = (timestamp: unknown) => {
+  const formatUploadDate = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('ms-MY', {

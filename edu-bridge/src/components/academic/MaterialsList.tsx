@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { MaterialCard } from './MaterialCard';
 import { getMaterials } from '@/lib/academic';
 import type { Material, MaterialFilter } from '@/types/academic';
@@ -17,11 +18,16 @@ interface MaterialsByYear {
 }
 
 export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps) {
+  const searchParams = useSearchParams();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [materialsByYear, setMaterialsByYear] = useState<MaterialsByYear>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<'all' | 'exam_paper' | 'answer_scheme' | 'note'>('all');
+  
+  // Get URL parameters
+  const targetMaterialId = searchParams.get('material');
+  const showComments = searchParams.get('showComments') === 'true';
 
   const loadMaterials = useCallback(async () => {
     try {
@@ -58,7 +64,7 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
     const grouped: MaterialsByYear = {};
 
     materials.forEach(material => {
-      const uploadDate = material.uploadDate?.toDate ? material.uploadDate.toDate() : new Date(material.uploadDate);
+      const uploadDate = (material.uploadDate as any)?.toDate ? (material.uploadDate as any).toDate() : new Date(material.uploadDate as any);
       const year = uploadDate.getFullYear().toString();
 
       if (!grouped[year]) {
@@ -70,8 +76,8 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
     // Sort materials within each year by upload date (newest first)
     Object.keys(grouped).forEach(year => {
       grouped[year].sort((a, b) => {
-        const dateA = a.uploadDate?.toDate ? a.uploadDate.toDate() : new Date(a.uploadDate);
-        const dateB = b.uploadDate?.toDate ? b.uploadDate.toDate() : new Date(b.uploadDate);
+        const dateA = (a.uploadDate as any)?.toDate ? (a.uploadDate as any).toDate() : new Date(a.uploadDate as any);
+        const dateB = (b.uploadDate as any)?.toDate ? (b.uploadDate as any).toDate() : new Date(b.uploadDate as any);
         return dateB.getTime() - dateA.getTime();
       });
     });
@@ -225,6 +231,7 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
                         material={material}
                         onPreview={onPreview}
                         showUploader={true}
+                        initialShowComments={showComments && material.materialId === targetMaterialId}
                       />
                     ))}
                   </div>

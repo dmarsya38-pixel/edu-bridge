@@ -204,7 +204,7 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       lastLogin: serverTimestamp()
     }, { merge: true });
 
-    // Convert to User type for response
+    // Convert to User type for response - include lecturer fields
     const user: User = {
       uid: userData.uid,
       matricId: userData.matricId,
@@ -216,7 +216,12 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       entryYear: userData.entryYear,
       avatar: userData.profile.avatar,
       displayName: userData.profile.displayName,
-      isVerified: userData.isVerified
+      isVerified: userData.isVerified,
+      
+      // Include lecturer-specific fields
+      ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
+      ...(userData.programmes && { programmes: userData.programmes }),
+      ...(userData.department && { department: userData.department })
     };
 
     return {
@@ -275,7 +280,8 @@ export async function getUserProfile(uid: string): Promise<User | null> {
       // Include lecturer-specific fields if they exist
       ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
       ...(userData.programmes && { programmes: userData.programmes }),
-      ...(userData.department && { department: userData.department })
+      ...(userData.department && { department: userData.department }),
+      ...(userData.programName && { programName: userData.programName })
     };
 
   } catch (error) {

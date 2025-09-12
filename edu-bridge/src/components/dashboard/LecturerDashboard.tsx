@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
 import { LecturerMaterialApproval } from '@/components/lecturer/LecturerMaterialApproval';
 import { getPendingMaterialsForLecturer, getProgrammes, getLecturerStats } from '@/lib/academic';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { User } from '@/types/user';
 import type { Programme } from '@/types/academic';
 
@@ -18,6 +20,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
   const [pendingCount, setPendingCount] = useState(0);
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [lecturerProgramme, setLecturerProgramme] = useState<Programme | null>(null);
+  const [programmeLoading, setProgrammeLoading] = useState(true);
   const [stats, setStats] = useState({
     materialsUploaded: 0,
     totalDownloads: 0,
@@ -26,25 +29,119 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
   });
 
   useEffect(() => {
-    loadPendingCount();
-    loadProgrammeData();
-    loadStats();
+    if (user) {
+      // For lecturers, always load programme data first to prevent "No programme assigned" flash
+      if (user.role === 'lecturer') {
+        if (!user.programmes || user.programmes.length === 0) {
+          console.log('⚠️  Lecturer missing programme data - needs re-registration');
+          console.log('🔍 Current user data:', {
+            uid: user.uid,
+            department: user.department,
+            programmes: user.programmes,
+            program: user.program,
+            teachingSubjects: user.teachingSubjects
+          });
+        }
+        
+        // Load programme data immediately to avoid flash of "No programme assigned"
+        loadProgrammeData();
+        loadPendingCount();
+        loadStats();
+      }
+    }
   }, [user]);
 
-  const loadProgrammeData = async () => {
-    if (!user || !user.programmes || user.programmes.length === 0) return;
+  const migrateLecturerData = async () => {
+    if (!user) return;
     
     try {
+      // Don't auto-migrate - this could assign wrong programme!
+      console.log('❌ Lecturer missing programme data. Please re-register with correct programme selection.');
+      console.log('🔍 Current user data:', {
+        uid: user.uid,
+        department: user.department,
+        programmes: user.programmes,
+        teachingSubjects: user.teachingSubjects
+      });
+      
+      // Just continue with normal loading without migration
+      loadPendingCount();
+      loadProgrammeData(); 
+      loadStats();
+    } catch (error) {
+      console.error('❌ Error checking lecturer data:', error);
+      loadPendingCount();
+      loadProgrammeData();
+      loadStats();
+    }
+  };
+
+  const loadProgrammeData = async () => {
+    if (!user) return;
+    
+    try {
+      setProgrammeLoading(true);
       const allProgrammes = await getProgrammes();
       setProgrammes(allProgrammes);
       
-      // Find the lecturer's programme
-      const userProgramme = allProgrammes.find(p => 
-        user.programmes && user.programmes.includes(p.programmeCode || p.programmeId)
-      );
+      // Find the lecturer's programme - improved matching logic
+      let userProgramme = null;
+      
+      // Debug logging
+      console.log('🔍 Programme matching debug:', {
+        userProgrammes: user.programmes,
+        userProgram: user.program,
+        allProgrammes: allProgrammes.map(p => ({ 
+          code: p.programmeCode, 
+          id: p.programmeId, 
+          name: p.programmeName 
+        }))
+      });
+      
+      if (user.programmes && user.programmes.length > 0) {
+        // Primary: Match using programmes array (preferred for lecturers)
+        const programmeCode = user.programmes[0]; // Take first programme
+        userProgramme = allProgrammes.find(p => 
+          p.programmeCode === programmeCode || p.programmeId === programmeCode
+        );
+        
+        console.log('✅ Found programme via programmes array:', {
+          searchCode: programmeCode,
+          foundProgramme: userProgramme ? {
+            id: userProgramme.programmeId,
+            code: userProgramme.programmeCode,
+            name: userProgramme.programmeName
+          } : null
+        });
+      } else if (user.program && user.program !== 'N/A') {
+        // Fallback: Match using program field (legacy support)
+        userProgramme = allProgrammes.find(p => 
+          p.programmeCode === user.program || p.programmeId === user.program
+        );
+        
+        console.log('⚠️ Found programme via legacy program field:', {
+          searchCode: user.program,
+          foundProgramme: userProgramme ? {
+            id: userProgramme.programmeId,
+            code: userProgramme.programmeCode,
+            name: userProgramme.programmeName
+          } : null
+        });
+      }
+      
       setLecturerProgramme(userProgramme || null);
+      
+      if (!userProgramme) {
+        console.error('❌ No programme found for lecturer:', {
+          programmes: user.programmes,
+          program: user.program,
+          availableProgrammes: allProgrammes.map(p => p.programmeCode)
+        });
+      }
     } catch (error) {
       console.error('Error loading programme data:', error);
+    } finally {
+      setProgrammeLoading(false);
     }
   };
 
@@ -118,7 +215,10 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
             <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Programme</h3>
             <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
-              {lecturerProgramme ? lecturerProgramme.programmeName : 'Loading...'}
+              {programmeLoading ? 'Loading...' : 
+               user.programName ? user.programName : 
+               lecturerProgramme ? lecturerProgramme.programmeName : 
+               user.department ? `${user.department} Department` : 'No programme assigned'}
             </p>
           </div>
           

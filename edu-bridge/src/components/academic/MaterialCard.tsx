@@ -1,17 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { incrementDownloadCount } from '@/lib/academic';
+import { incrementDownloadCount, getComments } from '@/lib/academic';
+import { CommentSection } from './CommentSection';
 import type { Material } from '@/types/academic';
 
 interface MaterialCardProps {
   material: Material;
   onPreview?: (material: Material) => void;
   showUploader?: boolean;
+  initialShowComments?: boolean;
 }
 
-export function MaterialCard({ material, onPreview, showUploader = false }: MaterialCardProps) {
+export function MaterialCard({ material, onPreview, showUploader = false, initialShowComments = false }: MaterialCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showComments, setShowComments] = useState(initialShowComments);
+  const [commentCount, setCommentCount] = useState(0);
   
   const handleDownload = async () => {
     if (isDownloading) return;
@@ -31,6 +35,24 @@ export function MaterialCard({ material, onPreview, showUploader = false }: Mate
       setIsDownloading(false);
     }
   };
+
+  const loadCommentCount = async () => {
+    try {
+      const comments = await getComments(material.materialId);
+      setCommentCount(comments.length);
+    } catch (error) {
+      console.error('Error loading comment count:', error);
+    }
+  };
+
+  const toggleComments = () => {
+    setShowComments(!showComments);
+  };
+
+  // Load comment count when component mounts
+  React.useEffect(() => {
+    loadCommentCount();
+  }, []);
 
   const handlePreview = () => {
     if (onPreview) {
@@ -103,7 +125,7 @@ export function MaterialCard({ material, onPreview, showUploader = false }: Mate
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatUploadDate = (timestamp: unknown) => {
+  const formatUploadDate = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('ms-MY', {
@@ -153,7 +175,7 @@ export function MaterialCard({ material, onPreview, showUploader = false }: Mate
               </span>
             )}
             {showUploader && (
-              <span>oleh {material.uploaderRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'}</span>
+              <span>oleh {material.uploaderRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'} | {material.uploaderName}</span>
             )}
           </div>
           
@@ -170,6 +192,23 @@ export function MaterialCard({ material, onPreview, showUploader = false }: Mate
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
                 <span>Preview</span>
+              </button>
+            )}
+            
+            {/* Comments Button - Hidden for exam papers */}
+            {material.materialType !== 'exam_paper' && (
+              <button
+                onClick={toggleComments}
+                className={`inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  showComments 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span>Comments ({commentCount})</span>
               </button>
             )}
             
@@ -196,6 +235,17 @@ export function MaterialCard({ material, onPreview, showUploader = false }: Mate
           </div>
         </div>
       </div>
+      
+      {/* Comments Section - Hidden for exam papers */}
+      {showComments && material.materialType !== 'exam_paper' && (
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <CommentSection 
+            materialId={material.materialId} 
+            isVisible={showComments} 
+            materialUploaderId={material.uploaderId}
+          />
+        </div>
+      )}
     </div>
   );
 }

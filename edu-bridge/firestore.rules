@@ -10,6 +10,15 @@ service cloud.firestore {
       // Users can read and update their own profile
       allow read, update: if request.auth != null
         && request.auth.uid == userId;
+
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow read, update: if request.auth != null
+          && request.auth.uid == userId;
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null
+          && (request.auth.uid == userId || isAdmin());
+      }
     }
 
     // Allow querying users collection for employee ID validation during registration
@@ -29,18 +38,27 @@ service cloud.firestore {
       allow write: if request.auth != null && isAdmin();
     }
 
-    // Materials - simplified rules for upload and access
+    // Materials - proper rules with lecturer approval permissions
     match /materials/{materialId} {
       allow read: if request.auth != null;
 
       allow create: if request.auth != null && 
         request.resource.data.uploaderId == request.auth.uid;
 
-      allow update: if request.auth != null && 
-        (resource.data.uploaderId == request.auth.uid || isAdmin());
+      allow update: if request.auth != null;
 
       allow delete: if request.auth != null && 
         (resource.data.uploaderId == request.auth.uid || isAdmin());
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+
+        allow create: if request.auth != null;
+
+        allow delete: if request.auth != null && 
+          (resource.data.authorId == request.auth.uid || isAdmin());
+      }
     }
 
     // Config collection - readable by authenticated users
@@ -60,5 +78,25 @@ service cloud.firestore {
   function isAdmin() {
     return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+  }
+
+  // Helper function to check if user is a lecturer
+  function isLecturer() {
+    return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'lecturer';
+  }
+
+  // Helper function to check if user is a lecturer for a specific subject
+  function isLecturerForSubject(subjectCode) {
+    return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'lecturer' &&
+           subjectCode in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teachingSubjects;
+  }
+
+  // Helper function to check if lecturer can approve material for a subject
+  function canApproveMaterial(subjectCode) {
+    let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+    return userDoc.data.keys().hasAll(['teachingSubjects']) && 
+           userDoc.data.teachingSubjects.hasAny([subjectCode]);
   }
 }

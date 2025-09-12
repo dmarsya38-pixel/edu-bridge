@@ -156,10 +156,20 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    // Special handling for programme selection to capture both code and name
+    if (name === 'programme') {
+      const selectedProgramme = programmes.find(p => p.programmeCode === value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        programmeName: selectedProgramme ? selectedProgramme.programmeName : ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
 
     // Validate field on change
     const error = validateField(name, type === 'checkbox' ? checked : value);

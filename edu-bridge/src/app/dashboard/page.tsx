@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { StudentDashboard } from '@/components/dashboard/StudentDashboard';
 import { LecturerDashboard } from '@/components/dashboard/LecturerDashboard';
 import { AdminDashboard } from '@/components/dashboard/AdminDashboard';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -54,6 +55,9 @@ export default function DashboardPage() {
 
               {/* User Menu */}
               <div className="flex items-center space-x-4">
+                {/* Notification Center */}
+                <NotificationCenter />
+                
                 {user && (
                   <div className="text-sm">
                     <p className="text-gray-900 dark:text-gray-100 font-medium">

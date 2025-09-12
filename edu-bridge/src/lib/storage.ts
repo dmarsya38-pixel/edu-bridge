@@ -6,7 +6,7 @@ import {
   UploadTaskSnapshot 
 } from 'firebase/storage';
 import { storage } from './firebase';
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/types/academic';
+import { COMMENT_ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/types/academic';
 
 export interface FileUploadProgress {
   bytesTransferred: number;
@@ -47,12 +47,12 @@ export function validateFile(file: File): FileValidationResult {
   }
 
   // Check file type
-  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+  if (!COMMENT_ALLOWED_FILE_TYPES.includes(file.type as any)) {
     return {
       isValid: false,
       error: {
         code: 'invalid-type',
-        message: 'File type not allowed. Only PDF, DOC, DOCX, PPT, and PPTX files are supported.'
+        message: 'File type not allowed. Only PDF, DOC, DOCX, PPT, PPTX, JPG, JPEG, and PNG files are supported.'
       }
     };
   }

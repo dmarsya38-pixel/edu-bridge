@@ -6,7 +6,7 @@ import type { Programme, Subject } from '@/types/academic';
 const INITIAL_PROGRAMMES = [
   {
     programmeCode: 'DBS',
-    programmeName: 'Diploma in Business Information System',
+    programmeName: 'Diploma in Business Studies',
     department: 'Commerce',
     isActive: true
   },

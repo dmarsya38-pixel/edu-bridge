@@ -231,6 +231,7 @@ export function MaterialUploadForm({
           downloadURL: uploadResult.downloadURL
         },
         user.uid,
+        user.fullName,
         user.role as 'student' | 'lecturer'
       );
 

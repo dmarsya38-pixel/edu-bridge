@@ -41,6 +41,7 @@ export interface Material {
   
   // Upload info
   uploaderId: string;
+  uploaderName: string;
   uploaderRole: 'student' | 'lecturer';
   uploadDate: Timestamp;
   
@@ -98,7 +99,7 @@ export const MATERIAL_TYPES: { [key in MaterialType]: string } = {
 };
 
 export const PROGRAMMES = [
-  { id: 'DBS', name: 'Diploma in Business Information System' },
+  { id: 'DBS', name: 'Diploma in Business Studies' },
   { id: 'DRM', name: 'Diploma in Retail Management' },
   { id: 'DIB', name: 'Diploma in Islamic Banking' },
   { id: 'DIF', name: 'Diploma in Islamic Finance' },
@@ -116,3 +117,68 @@ export const ALLOWED_FILE_TYPES = [
 ] as const;
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+// Comment System Types
+export interface CommentAttachment {
+  fileName: string;
+  fileSize: number;           // in bytes
+  fileType: string;           // "application/pdf", "image/jpeg", etc.
+  downloadURL: string;        // Firebase Storage URL
+}
+
+export interface Comment {
+  commentId: string;
+  materialId: string;
+  content: string;
+  attachments?: CommentAttachment[];
+  authorId: string;
+  authorName: string;
+  authorRole: 'student' | 'lecturer';
+  createdAt: Timestamp;
+}
+
+export interface CommentCreateData {
+  materialId: string;
+  content: string;
+  files?: File[];
+}
+
+export const COMMENT_ALLOWED_FILE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/jpg',
+  'image/png'
+] as const;
+
+export const COMMENT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per file
+export const COMMENT_MAX_FILES = 3; // Max 3 files per comment
+
+// Comment Notification System Types
+export interface CommentNotification {
+  notificationId: string;
+  userId: string;           // Material owner who receives notification
+  materialId: string;
+  materialTitle: string;
+  commenterId: string;      // User who commented
+  commenterName: string;
+  commentContent: string;   // Preview of comment (first 100 chars)
+  commentId: string;
+  createdAt: Timestamp;
+  isRead: boolean;
+  subjectCode: string;      // For navigation back to the material
+  programmeId: string;      // For navigation
+}
+
+export interface NotificationCreateData {
+  userId: string;
+  materialId: string;
+  materialTitle: string;
+  commenterId: string;
+  commenterName: string;
+  commentContent: string;
+  commentId: string;
+  subjectCode: string;
+  programmeId: string;
+}

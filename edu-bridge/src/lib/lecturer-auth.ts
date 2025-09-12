@@ -168,11 +168,11 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
       // Teaching assignments (NEW)
       teachingSubjects: formData.subjects,
       programmes: [formData.programme], // Single programme as array
+      programName: 'Unknown Programme', // TODO: Fetch actual programme name from programmes collection
       
       // Auto-generated fields (not applicable for lecturers)
       politeknik: 'Politeknik Nilai',
       program: 'N/A',
-      programName: 'N/A',
       entryYear: 'N/A',
       session: 'N/A',
       sessionName: 'N/A',

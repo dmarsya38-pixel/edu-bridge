@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ProgrammeBrowser } from '@/components/academic/ProgrammeBrowser';
 import { MaterialsList } from '@/components/academic/MaterialsList';
 import { DocumentViewer } from '@/components/academic/DocumentViewer';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
+import { getSubjectByProgrammeAndCode } from '@/lib/academic';
 import type { User } from '@/types/user';
 import type { Subject, Material } from '@/types/academic';
 
@@ -15,11 +17,39 @@ interface StudentDashboardProps {
 type ViewMode = 'dashboard' | 'browser' | 'materials';
 
 export function StudentDashboard({ user }: StudentDashboardProps) {
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+
+  // Handle URL parameters for deep linking from notifications
+  useEffect(() => {
+    const programmeId = searchParams.get('programme');
+    const subjectCode = searchParams.get('subject');
+    const materialId = searchParams.get('material');
+    
+    if (programmeId && subjectCode && materialId) {
+      const loadSubjectFromUrl = async () => {
+        setIsLoadingFromUrl(true);
+        try {
+          const subject = await getSubjectByProgrammeAndCode(programmeId, subjectCode);
+          if (subject) {
+            setSelectedSubject(subject);
+            setViewMode('materials');
+          }
+        } catch (error) {
+          console.error('Error loading subject from URL:', error);
+        } finally {
+          setIsLoadingFromUrl(false);
+        }
+      };
+      
+      loadSubjectFromUrl();
+    }
+  }, [searchParams]);
 
   const handleSubjectSelect = (subject: Subject) => {
     setSelectedSubject(subject);
@@ -55,6 +85,19 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
     // Clear success message after 5 seconds
     setTimeout(() => setUploadSuccess(null), 5000);
   };
+
+  // Show loading state when navigating from URL
+  if (isLoadingFromUrl) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-3">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-gray-600 dark:text-gray-400">Loading material...</span>
+        </div>
+      </div>
+    );
+  }
+
   // Render different views based on current mode
   if (viewMode === 'materials' && selectedSubject) {
     return (

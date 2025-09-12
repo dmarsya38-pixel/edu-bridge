@@ -13,16 +13,24 @@ import {
   limit,
   serverTimestamp,
   Timestamp,
-  getDocsFromServer
+  getDocsFromServer,
+  writeBatch
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from './firebase';
+import { db, auth } from './firebase';
 import type {
   Programme,
   Subject,
   Material,
   MaterialFilter,
   MaterialUploadData,
-  MaterialMetadata
+  MaterialMetadata,
+  Comment,
+  CommentCreateData,
+  CommentAttachment,
+  CommentNotification,
+  NotificationCreateData
 } from '@/types/academic';
 import type { User } from '@/types/user';
 
@@ -176,6 +184,31 @@ export async function getSubjectsBySemester(programmeId: string, semester: numbe
   }
 }
 
+export async function getSubjectByProgrammeAndCode(programmeId: string, subjectCode: string): Promise<Subject | null> {
+  try {
+    const querySnapshot = await getDocs(
+      query(
+        collection(db, 'subjects'),
+        where('programmeId', '==', programmeId),
+        where('subjectCode', '==', subjectCode)
+      )
+    );
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return {
+        ...doc.data(),
+        subjectId: doc.id
+      } as Subject;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching subject by programme and code:', error);
+    return null;
+  }
+}
+
 export async function createSubject(subject: Omit<Subject, 'subjectId' | 'createdAt'>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, 'subjects'), {
@@ -265,6 +298,7 @@ export async function createMaterial(
     downloadURL: string;
   },
   uploaderId: string,
+  uploaderName: string,
   uploaderRole: 'student' | 'lecturer'
 ): Promise<string> {
   try {
@@ -275,6 +309,7 @@ export async function createMaterial(
       ...metadata,
       ...file,
       uploaderId,
+      uploaderName,
       uploaderRole,
       uploadDate: serverTimestamp(),
       approvalStatus,
@@ -398,7 +433,7 @@ export async function getEligibleLecturers(programmeId: string, subjectCode: str
     return querySnapshot.docs.map(doc => ({
       ...doc.data(),
       uid: doc.id
-    }));
+    })) as User[];
   } catch (error) {
     console.error('Error fetching eligible lecturers:', error);
     return [];
@@ -558,5 +593,189 @@ export async function getLecturerStats(lecturerId: string): Promise<{
       studentsServed: 0,
       pendingApprovals: 0
     };
+  }
+}
+
+// Comment System Functions
+export async function getComments(materialId: string): Promise<Comment[]> {
+  try {
+    const commentsRef = collection(db, 'materials', materialId, 'comments');
+    const querySnapshot = await getDocs(
+      query(commentsRef, orderBy('createdAt', 'desc'))
+    );
+    
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      commentId: doc.id
+    })) as Comment[];
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    return [];
+  }
+}
+
+export async function addComment(
+  commentData: CommentCreateData,
+  authorId: string,
+  authorName: string,
+  authorRole: 'student' | 'lecturer'
+): Promise<string> {
+  try {
+    // Get material details to find owner and create notification
+    const material = await getMaterial(commentData.materialId);
+    
+    // Handle file uploads if any
+    const attachments: CommentAttachment[] = [];
+    
+    if (commentData.files && commentData.files.length > 0) {
+      for (const file of commentData.files) {
+        const storageRef = ref(
+          storage, 
+          `comments/${commentData.materialId}/${Date.now()}_${file.name}`
+        );
+        
+        const uploadResult = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
+        
+        attachments.push({
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          downloadURL
+        });
+      }
+    }
+
+    // Create comment document
+    const commentsRef = collection(db, 'materials', commentData.materialId, 'comments');
+    const commentDoc = {
+      materialId: commentData.materialId,
+      content: commentData.content,
+      attachments: attachments.length > 0 ? attachments : [],
+      authorId,
+      authorName,
+      authorRole,
+      createdAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(commentsRef, commentDoc);
+    
+    // Create notification for material owner (if commenter is not the owner) - don't wait for it
+    if (material && material.uploaderId !== authorId) {
+      createCommentNotification({
+        userId: material.uploaderId,
+        materialId: material.materialId,
+        materialTitle: material.title,
+        commenterId: authorId,
+        commenterName: authorName,
+        commentContent: commentData.content,
+        commentId: docRef.id,
+        subjectCode: material.subjectCode,
+        programmeId: material.programmeId
+      }).catch(error => {
+        console.error('Failed to create notification:', error);
+      });
+    }
+    
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    throw error;
+  }
+}
+
+export async function deleteComment(materialId: string, commentId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'materials', materialId, 'comments', commentId));
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    throw error;
+  }
+}
+
+// Comment Notification System Functions
+export async function createCommentNotification(notificationData: NotificationCreateData): Promise<string> {
+  try {
+    // Truncate comment content for preview
+    const truncatedContent = notificationData.commentContent.length > 100 
+      ? notificationData.commentContent.substring(0, 100) + '...'
+      : notificationData.commentContent;
+
+    const notificationsRef = collection(db, 'users', notificationData.userId, 'notifications');
+    
+    const notificationDoc = {
+      ...notificationData,
+      commentContent: truncatedContent,
+      createdAt: serverTimestamp(),
+      isRead: false
+    };
+
+    const docRef = await addDoc(notificationsRef, notificationDoc);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating comment notification:', error);
+    throw error;
+  }
+}
+
+export async function getCommentNotifications(userId: string): Promise<CommentNotification[]> {
+  try {
+    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    
+    const querySnapshot = await getDocs(
+      query(notificationsRef, orderBy('createdAt', 'desc'))
+    );
+    
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      notificationId: doc.id
+    })) as CommentNotification[];
+  } catch (error) {
+    console.error('Error fetching comment notifications:', error);
+    return [];
+  }
+}
+
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  try {
+    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const querySnapshot = await getDocs(
+      query(notificationsRef, where('isRead', '==', false))
+    );
+    
+    return querySnapshot.size;
+  } catch (error) {
+    console.error('Error fetching unread notification count:', error);
+    return 0;
+  }
+}
+
+export async function markNotificationAsRead(userId: string, notificationId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'users', userId, 'notifications', notificationId), {
+      isRead: true
+    });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
+}
+
+export async function markAllNotificationsAsRead(userId: string): Promise<void> {
+  try {
+    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const querySnapshot = await getDocs(
+      query(notificationsRef, where('isRead', '==', false))
+    );
+    
+    const batch = writeBatch(db);
+    querySnapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { isRead: true });
+    });
+    
+    await batch.commit();
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    throw error;
   }
 }
