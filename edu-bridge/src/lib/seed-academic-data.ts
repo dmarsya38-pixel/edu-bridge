@@ -6,7 +6,7 @@ import type { Programme, Subject } from '@/types/academic';
 const INITIAL_PROGRAMMES = [
   {
     programmeCode: 'DBS',
-    programmeName: 'Diploma in Business Studies',
+    programmeName: 'Diploma in Business Information System',
     department: 'Commerce',
     isActive: true
   },
@@ -33,6 +33,12 @@ const INITIAL_PROGRAMMES = [
     programmeName: 'Diploma in Logistics Supply Chain',
     department: 'Commerce',
     isActive: true
+  },
+  {
+    programmeCode: 'DISCIPLINE CORE',
+    programmeName: 'All Diploma',
+    department: 'Commerce',
+    isActive: true
   }
 ];
 
@@ -40,8 +46,8 @@ const INITIAL_PROGRAMMES = [
 const INITIAL_SUBJECTS = [
   // DBS Programme
   {
-    subjectCode: 'DPP20023',
-    subjectName: 'INTERNATIONAL BUSINESS',
+    subjectCode: 'DPB10033',
+    subjectName: 'BUSINESS ACCOUNTING',
     programmeId: 'DBS',
     semester: 1,
     creditHours: 3,
@@ -49,8 +55,8 @@ const INITIAL_SUBJECTS = [
     isActive: true
   },
   {
-    subjectCode: 'DBS1013',
-    subjectName: 'MARKETING BASICS',
+    subjectCode: 'DPB10053',
+    subjectName: 'MICROECONMICS',
     programmeId: 'DBS',
     semester: 1,
     creditHours: 3,
@@ -58,34 +64,124 @@ const INITIAL_SUBJECTS = [
     isActive: true
   },
   {
-    subjectCode: 'DBS2024',
-    subjectName: 'BUSINESS INFORMATION SYSTEMS',
+    subjectCode: 'DPM20033',
+    subjectName: 'FUNDAMENTALS OF MARKETING',
     programmeId: 'DBS',
-    semester: 2,
+    semester: 1,
     creditHours: 4,
     description: 'Information systems in business environments',
     isActive: true
   },
   {
-    subjectCode: 'DBS3015',
-    subjectName: 'DATABASE MANAGEMENT',
+    subjectCode: 'DPB20042',
+    subjectName: 'MANAGEMENT INFORMATION SYSTEM',
     programmeId: 'DBS',
-    semester: 3,
+    semester: 2,
     creditHours: 3,
     description: 'Database design, implementation and management',
     isActive: true
   },
-
-  // DRM Programme
   {
-    subjectCode: 'DRM1011',
-    subjectName: 'RETAIL MANAGEMENT FUNDAMENTALS',
-    programmeId: 'DRM',
-    semester: 1,
+   subjectCode: 'DPB20073',
+    subjectName: 'MACROECONOMICS',
+    programmeId: 'DBS',
+    semester: 2,
     creditHours: 3,
-    description: 'Basic principles of retail management and operations',
+    description: 'EQUATIONS',
     isActive: true
   },
+   {
+   subjectCode: 'DPB20093',
+    subjectName: 'BUSINESS MATHEMATICS',
+    programmeId: 'DBS',
+    semester: 2,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },
+  {
+   subjectCode:'DPB30063',
+    subjectName: 'INTRODUCTION TO HUMAN RECOURCES',
+    programmeId: 'DBS',
+    semester: 2,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },
+  {
+   subjectCode:'DPB30093',
+    subjectName: 'QUANTITATIVE METHODS',
+    programmeId: 'DBS',
+    semester: 3,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },  
+  {
+   subjectCode:'DPB40103',
+    subjectName: 'DIGITAL ENTREPRENEURSHIP',
+    programmeId: 'DBS',
+    semester: 3,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },  
+  {
+   subjectCode:'DPB40143',
+    subjectName: 'ORGANIZATIONAL BEHAVIOR',
+    programmeId: 'DBS',
+    semester: 4,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },  
+  {
+   subjectCode:'DPB40123',
+    subjectName: 'BUSINESS FINANCE',
+    programmeId: 'DBS',
+    semester: 4,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },  
+  {
+   subjectCode:'DPB10063',
+    subjectName: 'PRINCIPLE OF MANAGEMENT',
+    programmeId: 'DBS',
+    semester: 4,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },
+  {
+   subjectCode:'DPB40133',
+    subjectName: 'BUSINESS PROCESS MANAGEMENT',
+    programmeId: 'DBS',
+    semester: 5,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },
+  {
+   subjectCode:'DPB40113',
+    subjectName: 'BUSINESS ETHICS',
+    programmeId: 'DBS',
+    semester: 5,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },
+  {
+   subjectCode:'DPP20023',
+    subjectName: 'INTRODUCTION TO INTERNATIONAL BUSINESS',
+    programmeId: 'DBS',
+    semester: 5,
+    creditHours: 3,
+    description: 'EQUATIONS',
+    isActive: true
+  },
+
+  // DRM Programme
   {
     subjectCode: 'DRM2022',
     subjectName: 'MERCHANDISING AND BUYING',
@@ -104,7 +200,7 @@ const INITIAL_SUBJECTS = [
     description: 'Data analytics for retail business decisions',
     isActive: true
   },
-
+  
   // DIB Programme
   {
     subjectCode: 'DIB1014',
