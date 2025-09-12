@@ -44,6 +44,12 @@ export async function getProgrammes(): Promise<Programme[]> {
     return programmesCache;
   }
   
+  // Check if Firestore is initialized
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     console.log('🔍 Firestore query: Loading programmes');
     const querySnapshot = await getDocs(
@@ -68,6 +74,11 @@ export async function getProgrammes(): Promise<Programme[]> {
 }
 
 export async function getProgramme(programmeId: string): Promise<Programme | null> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const docSnap = await getDoc(doc(db, 'programmes', programmeId));
     if (docSnap.exists()) {
@@ -84,6 +95,11 @@ export async function getProgramme(programmeId: string): Promise<Programme | nul
 }
 
 export async function createProgramme(programme: Omit<Programme, 'programmeId' | 'createdAt'>): Promise<string> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const docRef = await addDoc(collection(db, 'programmes'), {
       ...programme,
@@ -98,6 +114,11 @@ export async function createProgramme(programme: Omit<Programme, 'programmeId' |
 
 // Subject Management
 export async function getSubjects(): Promise<Subject[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const querySnapshot = await getDocs(
       query(collection(db, 'subjects'), orderBy('subjectCode'))
@@ -113,6 +134,11 @@ export async function getSubjects(): Promise<Subject[]> {
 }
 
 export async function getSubjectsByProgramme(programmeId: string): Promise<Subject[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const querySnapshot = await getDocs(
       query(
@@ -138,6 +164,11 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const cacheTimestamps = new Map<string, number>();
 
 export async function getSubjectsBySemester(programmeId: string, semester: number): Promise<Subject[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   const cacheKey = `${programmeId}_${semester}`;
   const now = Date.now();
   
@@ -181,6 +212,11 @@ export async function getSubjectsBySemester(programmeId: string, semester: numbe
 }
 
 export async function getSubjectByProgrammeAndCode(programmeId: string, subjectCode: string): Promise<Subject | null> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const querySnapshot = await getDocs(
       query(
@@ -206,6 +242,11 @@ export async function getSubjectByProgrammeAndCode(programmeId: string, subjectC
 }
 
 export async function createSubject(subject: Omit<Subject, 'subjectId' | 'createdAt'>): Promise<string> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const docRef = await addDoc(collection(db, 'subjects'), {
       ...subject,
@@ -220,6 +261,11 @@ export async function createSubject(subject: Omit<Subject, 'subjectId' | 'create
 
 // Material Management
 export async function getMaterials(filter?: MaterialFilter): Promise<Material[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     let q = query(collection(db, 'materials'));
     
@@ -270,6 +316,11 @@ export async function getMaterials(filter?: MaterialFilter): Promise<Material[]>
 }
 
 export async function getMaterial(materialId: string): Promise<Material | null> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const docSnap = await getDoc(doc(db, 'materials', materialId));
     if (docSnap.exists()) {
@@ -297,6 +348,11 @@ export async function createMaterial(
   uploaderName: string,
   uploaderRole: 'student' | 'lecturer'
 ): Promise<string> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     // Auto-approve lecturer uploads, require approval for students
     const approvalStatus = uploaderRole === 'lecturer' ? 'approved' : 'pending';
@@ -323,6 +379,11 @@ export async function createMaterial(
 }
 
 export async function updateMaterial(materialId: string, updates: Partial<Material>): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'materials', materialId), updates);
   } catch (error) {
@@ -332,6 +393,11 @@ export async function updateMaterial(materialId: string, updates: Partial<Materi
 }
 
 export async function deleteMaterial(materialId: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await deleteDoc(doc(db, 'materials', materialId));
   } catch (error) {
@@ -342,6 +408,11 @@ export async function deleteMaterial(materialId: string): Promise<void> {
 
 // Material approval functions for admin
 export async function approveMaterial(materialId: string, adminId: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'materials', materialId), {
       approvalStatus: 'approved',
@@ -355,6 +426,11 @@ export async function approveMaterial(materialId: string, adminId: string): Prom
 }
 
 export async function rejectMaterial(materialId: string, adminId: string, reason: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'materials', materialId), {
       approvalStatus: 'rejected',
@@ -370,6 +446,11 @@ export async function rejectMaterial(materialId: string, adminId: string, reason
 
 // Get pending materials for admin approval
 export async function getPendingMaterials(): Promise<Material[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const querySnapshot = await getDocs(
       query(
@@ -390,6 +471,11 @@ export async function getPendingMaterials(): Promise<Material[]> {
 
 // Lecturer Subject Management
 export async function getLecturerSubjects(lecturerId: string): Promise<string[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const userDoc = await getDoc(doc(db, 'users', lecturerId));
     if (userDoc.exists()) {
@@ -404,6 +490,11 @@ export async function getLecturerSubjects(lecturerId: string): Promise<string[]>
 }
 
 export async function updateLecturerSubjects(lecturerId: string, subjectCodes: string[]): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'users', lecturerId), {
       teachingSubjects: subjectCodes
@@ -415,6 +506,11 @@ export async function updateLecturerSubjects(lecturerId: string, subjectCodes: s
 }
 
 export async function getEligibleLecturers(programmeId: string, subjectCode: string): Promise<User[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     // Get lecturers who teach this subject and programme
     const usersRef = collection(db, 'users');
@@ -438,6 +534,12 @@ export async function getEligibleLecturers(programmeId: string, subjectCode: str
 
 // Lecturer-specific material approval functions
 export async function getPendingMaterialsForLecturer(lecturerId: string): Promise<Material[]> {
+  // Check if Firestore is initialized
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     // First get lecturer's teaching subjects
     const teachingSubjects = await getLecturerSubjects(lecturerId);
@@ -476,6 +578,11 @@ export async function approveMaterialByLecturer(
   lecturerId: string, 
   lecturerName: string
 ): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'materials', materialId), {
       approvalStatus: 'approved',
@@ -496,6 +603,11 @@ export async function rejectMaterialByLecturer(
   lecturerName: string,
   reason: string
 ): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'materials', materialId), {
       approvalStatus: 'rejected',
@@ -513,6 +625,11 @@ export async function rejectMaterialByLecturer(
 
 // Update download count
 export async function incrementDownloadCount(materialId: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const material = await getMaterial(materialId);
     if (material) {
@@ -528,6 +645,11 @@ export async function incrementDownloadCount(materialId: string): Promise<void> 
 
 // Get popular materials
 export async function getPopularMaterials(limitCount: number = 10): Promise<Material[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const querySnapshot = await getDocs(
       query(
@@ -554,6 +676,11 @@ export async function getLecturerStats(lecturerId: string): Promise<{
   studentsServed: number;
   pendingApprovals: number;
 }> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     // Get lecturer's uploaded materials
     const materialsQuery = query(
@@ -594,6 +721,11 @@ export async function getLecturerStats(lecturerId: string): Promise<{
 
 // Comment System Functions
 export async function getComments(materialId: string): Promise<Comment[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const commentsRef = collection(db, 'materials', materialId, 'comments');
     const querySnapshot = await getDocs(
@@ -616,6 +748,11 @@ export async function addComment(
   authorName: string,
   authorRole: 'student' | 'lecturer'
 ): Promise<string> {
+  if (!db || !storage) {
+    console.error('Firebase services not initialized');
+    throw new Error('Firebase services not properly configured');
+  }
+  
   try {
     // Get material details to find owner and create notification
     const material = await getMaterial(commentData.materialId);
@@ -681,6 +818,11 @@ export async function addComment(
 }
 
 export async function deleteComment(materialId: string, commentId: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await deleteDoc(doc(db, 'materials', materialId, 'comments', commentId));
   } catch (error) {
@@ -691,6 +833,11 @@ export async function deleteComment(materialId: string, commentId: string): Prom
 
 // Comment Notification System Functions
 export async function createCommentNotification(notificationData: NotificationCreateData): Promise<string> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     // Truncate comment content for preview
     const truncatedContent = notificationData.commentContent.length > 100 
@@ -715,6 +862,11 @@ export async function createCommentNotification(notificationData: NotificationCr
 }
 
 export async function getCommentNotifications(userId: string): Promise<CommentNotification[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const notificationsRef = collection(db, 'users', userId, 'notifications');
     
@@ -733,6 +885,11 @@ export async function getCommentNotifications(userId: string): Promise<CommentNo
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const notificationsRef = collection(db, 'users', userId, 'notifications');
     const querySnapshot = await getDocs(
@@ -747,6 +904,11 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
 }
 
 export async function markNotificationAsRead(userId: string, notificationId: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     await updateDoc(doc(db, 'users', userId, 'notifications', notificationId), {
       isRead: true
@@ -758,6 +920,11 @@ export async function markNotificationAsRead(userId: string, notificationId: str
 }
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const notificationsRef = collection(db, 'users', userId, 'notifications');
     const querySnapshot = await getDocs(

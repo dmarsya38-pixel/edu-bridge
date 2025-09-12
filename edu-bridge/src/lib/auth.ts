@@ -41,6 +41,11 @@ import { AUTH_ERROR_CODES } from '@/types/user';
  * Check if matric ID already exists in the system
  */
 export async function checkMatricIdExists(matricId: string): Promise<boolean> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const q = query(
       collection(db, 'users'),
@@ -58,6 +63,11 @@ export async function checkMatricIdExists(matricId: string): Promise<boolean> {
  * Register new user with email/password and create user profile
  */
 export async function registerUser(formData: RegistrationFormData): Promise<RegistrationResponse> {
+  if (!auth || !db) {
+    console.error('Firebase services not initialized');
+    throw new Error('Firebase services not properly configured');
+  }
+  
   try {
     // Validate matric ID format
     const matricValidation = validateMatricId(formData.matricId);
@@ -175,6 +185,11 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
  * Login user with email and password
  */
 export async function loginUser(formData: LoginFormData): Promise<LoginResponse> {
+  if (!auth || !db) {
+    console.error('Firebase services not initialized');
+    throw new Error('Firebase services not properly configured');
+  }
+  
   try {
     // Sign in with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(
@@ -243,6 +258,11 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
  * Logout current user
  */
 export async function logoutUser(): Promise<void> {
+  if (!auth) {
+    console.error('Firebase Auth not initialized');
+    throw new Error('Authentication service not properly configured');
+  }
+  
   try {
     await signOut(auth);
   } catch (error) {
@@ -255,6 +275,11 @@ export async function logoutUser(): Promise<void> {
  * Get user profile from Firestore
  */
 export async function getUserProfile(uid: string): Promise<User | null> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
     
@@ -356,6 +381,11 @@ function mapFirebaseError(error: unknown): AuthError {
  * Check if current user is authenticated
  */
 export function getCurrentUser(): FirebaseUser | null {
+  if (!auth) {
+    console.error('Firebase Auth not initialized');
+    throw new Error('Authentication service not properly configured');
+  }
+  
   return auth.currentUser;
 }
 
@@ -363,8 +393,13 @@ export function getCurrentUser(): FirebaseUser | null {
  * Wait for auth state to be ready
  */
 export function waitForAuthReady(): Promise<FirebaseUser | null> {
+  if (!auth) {
+    console.error('Firebase Auth not initialized');
+    throw new Error('Authentication service not properly configured');
+  }
+  
   return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth!.onAuthStateChanged((user: FirebaseUser | null) => {
       unsubscribe();
       resolve(user);
     });

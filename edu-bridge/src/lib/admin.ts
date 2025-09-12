@@ -64,6 +64,11 @@ export async function approveUser(
   adminId: string,
   adminName: string
 ): Promise<AdminResponse> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const userRef = doc(db, 'users', userId);
     
@@ -94,6 +99,11 @@ export async function rejectUser(
   adminName: string,
   reason: string
 ): Promise<AdminResponse> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const userRef = doc(db, 'users', userId);
     
@@ -123,6 +133,11 @@ export async function getAllUsers(
   status?: 'pending' | 'approved' | 'rejected' | 'all',
   userLimit?: number
 ): Promise<UserProfile[]> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     let q;
     
@@ -164,9 +179,14 @@ export async function bulkApproveUsers(
   adminId: string,
   adminName: string
 ): Promise<AdminResponse> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const updatePromises = userIds.map(userId => {
-      const userRef = doc(db, 'users', userId);
+      const userRef = doc(db!, 'users', userId);
       return updateDoc(userRef, {
         isVerified: true,
         verificationStatus: 'approved',
@@ -192,6 +212,11 @@ export async function bulkApproveUsers(
  * Get admin dashboard statistics
  */
 export async function getAdminStats() {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const [pendingUsersQuery, allUsersQuery] = await Promise.all([
       getDocs(query(
@@ -243,6 +268,11 @@ export async function createFirstAdmin(
   userId: string,
   userData: Partial<UserProfile>
 ): Promise<AdminResponse> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const userRef = doc(db, 'users', userId);
     

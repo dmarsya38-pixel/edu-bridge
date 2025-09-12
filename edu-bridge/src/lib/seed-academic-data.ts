@@ -274,6 +274,12 @@ export async function seedProgrammes(): Promise<void> {
   try {
     console.log('Seeding programmes...');
     
+    // Check if Firestore is initialized
+    if (!db) {
+      console.error('Firestore not initialized');
+      throw new Error('Database not properly configured');
+    }
+    
     for (const programme of INITIAL_PROGRAMMES) {
       const programmeData = {
         ...programme,
@@ -281,7 +287,7 @@ export async function seedProgrammes(): Promise<void> {
         createdAt: serverTimestamp()
       };
       
-      await setDoc(doc(db, 'programmes', programme.programmeCode), programmeData);
+      await setDoc(doc(db!, 'programmes', programme.programmeCode), programmeData);
       console.log(`✓ Created programme: ${programme.programmeCode} - ${programme.programmeName}`);
     }
     
@@ -303,7 +309,7 @@ export async function seedSubjects(): Promise<void> {
         createdAt: serverTimestamp()
       };
       
-      await setDoc(doc(db, 'subjects', subject.subjectCode), subjectData);
+      await setDoc(doc(db!, 'subjects', subject.subjectCode), subjectData);
       console.log(`✓ Created subject: ${subject.subjectCode} - ${subject.subjectName}`);
     }
     

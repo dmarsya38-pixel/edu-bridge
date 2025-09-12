@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { getFirebaseAuth } from '@/lib/firebase';
 import { getUserProfile, logoutUser } from '@/lib/auth';
 import type { User, AuthState } from '@/types/user';
 
@@ -35,7 +35,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Listen to Firebase auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    // Only initialize Firebase on the client side
+    if (typeof window === 'undefined') {
+      setAuthState({
+        user: null,
+        loading: false,
+        error: null
+      });
+      return;
+    }
+
+    // Get Firebase auth instance (this will initialize Firebase if needed)
+    const firebaseAuth = getFirebaseAuth();
+    
+    // Check if Firebase is properly initialized
+    if (!firebaseAuth) {
+      console.error('Firebase auth not initialized');
+      setAuthState({
+        user: null,
+        loading: false,
+        error: 'Firebase authentication not properly configured. Please check environment variables.'
+      });
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser: FirebaseUser | null) => {
       setAuthState(prev => ({ ...prev, loading: true, error: null }));
 
       if (firebaseUser) {

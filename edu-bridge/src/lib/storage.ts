@@ -115,7 +115,7 @@ export function uploadFile(
   return new Promise((resolve, reject) => {
     // Debug: Check authentication
     import('./firebase').then(({ auth }) => {
-      console.log('🔐 Upload attempt - User authenticated:', !!auth.currentUser);
+      console.log('🔐 Upload attempt - User authenticated:', !!(auth?.currentUser));
       console.log('🗂️ Upload path:', storagePath);
       console.log('📁 File details:', { name: file.name, type: file.type, size: file.size });
     });
@@ -127,7 +127,13 @@ export function uploadFile(
       return;
     }
 
-    const storageRef = ref(storage, storagePath);
+    // Check if storage is initialized
+    if (!storage) {
+      reject(new Error('Storage service not properly configured'));
+      return;
+    }
+
+    const storageRef = ref(storage!, storagePath);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on(
@@ -171,8 +177,13 @@ export function uploadFile(
  * Delete file from Firebase Storage
  */
 export async function deleteFile(storagePath: string): Promise<void> {
+  // Check if storage is initialized
+  if (!storage) {
+    throw new Error('Storage service not properly configured');
+  }
+  
   try {
-    const storageRef = ref(storage, storagePath);
+    const storageRef = ref(storage!, storagePath);
     await deleteObject(storageRef);
   } catch (error) {
     console.error('Error deleting file:', error);

@@ -88,6 +88,11 @@ export function validateInstitutionalEmail(email: string): { isValid: boolean; e
  * Check if employee ID already exists
  */
 export async function checkEmployeeIdExists(employeeId: string): Promise<boolean> {
+  if (!db) {
+    console.error('Firestore not initialized');
+    throw new Error('Database not properly configured');
+  }
+  
   try {
     const q = query(
       collection(db, 'users'),
@@ -105,6 +110,11 @@ export async function checkEmployeeIdExists(employeeId: string): Promise<boolean
  * Register new lecturer (requires admin approval)
  */
 export async function registerLecturer(formData: LecturerRegistrationData): Promise<RegistrationResponse> {
+  if (!auth || !db) {
+    console.error('Firebase services not initialized');
+    throw new Error('Firebase services not properly configured');
+  }
+  
   try {
     // Validate employee ID format
     const employeeValidation = validateEmployeeId(formData.employeeId);
