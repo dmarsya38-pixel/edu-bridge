@@ -40,7 +40,7 @@ export async function fixLecturerProgrammeNames() {
     const programmes = programmesSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as Array<{id: string; programmeId?: string; programmeCode?: string; programmeName?: string}>;
     
     console.log(`📚 Loaded ${programmes.length} programmes for reference`);
     
@@ -77,7 +77,7 @@ export async function fixLecturerProgrammeNames() {
             p.programmeId === programmeCode || p.programmeCode === programmeCode
           );
           
-          if (programme) {
+          if (programme && programme.programmeName) {
             programmeName = programme.programmeName;
             console.log(`✅ Found programme via programmes array: ${programmeName}`);
           }
@@ -87,7 +87,7 @@ export async function fixLecturerProgrammeNames() {
             p.programmeId === lecturerData.program || p.programmeCode === lecturerData.program
           );
           
-          if (programme) {
+          if (programme && programme.programmeName) {
             programmeName = programme.programmeName;
             console.log(`✅ Found programme via program field: ${programmeName}`);
           }
