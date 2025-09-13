@@ -19,8 +19,10 @@ import {
   collection, 
   where, 
   getDocs,
+  onSnapshot,
   serverTimestamp,
-  Timestamp 
+  Timestamp,
+  DocumentSnapshot 
 } from 'firebase/firestore';
 
 import { auth, db } from './firebase';
@@ -183,23 +185,48 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       formData.password
     );
 
-    // Get user profile from Firestore with retry logic
-    let userDoc;
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Get user profile from Firestore using snapshot listener for better offline support
+    let userDoc: DocumentSnapshot | undefined;
     
-    while (retryCount < maxRetries) {
-      try {
-        userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        break;
-      } catch (firestoreError) {
-        retryCount++;
-        console.warn(`Firestore connection attempt ${retryCount} failed:`, (firestoreError as Error)?.message || 'Unknown error');
-        if (retryCount >= maxRetries) {
-          throw firestoreError;
+    try {
+      userDoc = await new Promise((resolve, reject) => {
+        const unsubscribe = onSnapshot(doc(db, 'users', userCredential.user.uid), 
+          (doc) => {
+            unsubscribe();
+            resolve(doc);
+          },
+          (error) => {
+            unsubscribe();
+            reject(error);
+          }
+        );
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          unsubscribe();
+          reject(new Error('Firestore connection timeout'));
+        }, 10000);
+      });
+    } catch (firestoreError) {
+      console.warn('Firestore snapshot listener failed, falling back to getDoc:', (firestoreError as Error)?.message || 'Unknown error');
+      
+      // Fallback to getDoc with retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+          break;
+        } catch (retryError) {
+          retryCount++;
+          console.warn(`Firestore connection attempt ${retryCount} failed:`, (retryError as Error)?.message || 'Unknown error');
+          if (retryCount >= maxRetries) {
+            throw retryError;
+          }
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
         }
-        // Wait before retry (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
       }
     }
     
@@ -273,9 +300,35 @@ export async function logoutUser(): Promise<void> {
  */
 export async function getUserProfile(uid: string): Promise<User | null> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
+    // Try using snapshot listener first for better offline support
+    let userDoc: DocumentSnapshot | undefined;
     
-    if (!userDoc.exists()) {
+    try {
+      userDoc = await new Promise((resolve, reject) => {
+        const unsubscribe = onSnapshot(doc(db, 'users', uid), 
+          (doc) => {
+            unsubscribe();
+            resolve(doc);
+          },
+          (error) => {
+            unsubscribe();
+            reject(error);
+          }
+        );
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          unsubscribe();
+          reject(new Error('Firestore connection timeout'));
+        }, 5000);
+      });
+    } catch (snapshotError) {
+      console.warn('Snapshot listener failed, falling back to getDoc:', (snapshotError as Error)?.message);
+      // Fallback to getDoc
+      userDoc = await getDoc(doc(db, 'users', uid));
+    }
+    
+    if (!userDoc || !userDoc.exists()) {
       return null;
     }
 
