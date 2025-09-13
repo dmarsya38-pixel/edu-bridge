@@ -14,8 +14,8 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './firebase';
-import { db } from './firebase';
+import { getStorageInstance } from './firebase';
+import { getDb } from './firebase';
 import type {
   Programme,
   Subject,
@@ -46,8 +46,11 @@ export async function getProgrammes(): Promise<Programme[]> {
   
   try {
     console.log('🔍 Firestore query: Loading programmes');
+    if (!getDb()) {
+      throw new Error('Firestore is not initialized');
+    }
     const querySnapshot = await getDocs(
-      query(collection(db, 'programmes'), orderBy('programmeCode'))
+      query(collection(getDb(), 'programmes'), orderBy('programmeCode'))
     );
     
     const programmes = querySnapshot.docs.map(doc => ({
@@ -69,7 +72,7 @@ export async function getProgrammes(): Promise<Programme[]> {
 
 export async function getProgramme(programmeId: string): Promise<Programme | null> {
   try {
-    const docSnap = await getDoc(doc(db, 'programmes', programmeId));
+    const docSnap = await getDoc(doc(getDb(), 'programmes', programmeId));
     if (docSnap.exists()) {
       return {
         ...docSnap.data(),
@@ -85,7 +88,7 @@ export async function getProgramme(programmeId: string): Promise<Programme | nul
 
 export async function createProgramme(programme: Omit<Programme, 'programmeId' | 'createdAt'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, 'programmes'), {
+    const docRef = await addDoc(collection(getDb(), 'programmes'), {
       ...programme,
       createdAt: serverTimestamp()
     });
@@ -100,7 +103,7 @@ export async function createProgramme(programme: Omit<Programme, 'programmeId' |
 export async function getSubjects(): Promise<Subject[]> {
   try {
     const querySnapshot = await getDocs(
-      query(collection(db, 'subjects'), orderBy('subjectCode'))
+      query(collection(getDb(), 'subjects'), orderBy('subjectCode'))
     );
     return querySnapshot.docs.map(doc => ({
       ...doc.data(),
@@ -116,7 +119,7 @@ export async function getSubjectsByProgramme(programmeId: string): Promise<Subje
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'subjects'),
+        collection(getDb(), 'subjects'),
         where('programmeId', '==', programmeId),
         orderBy('semester'),
         orderBy('subjectCode')
@@ -156,7 +159,7 @@ export async function getSubjectsBySemester(programmeId: string, semester: numbe
     // Use regular getDocs (with Firebase's built-in caching)
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'subjects'),
+        collection(getDb(), 'subjects'),
         where('programmeId', '==', programmeId),
         where('semester', '==', semester),
         orderBy('subjectCode')
@@ -184,7 +187,7 @@ export async function getSubjectByProgrammeAndCode(programmeId: string, subjectC
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'subjects'),
+        collection(getDb(), 'subjects'),
         where('programmeId', '==', programmeId),
         where('subjectCode', '==', subjectCode)
       )
@@ -207,7 +210,7 @@ export async function getSubjectByProgrammeAndCode(programmeId: string, subjectC
 
 export async function createSubject(subject: Omit<Subject, 'subjectId' | 'createdAt'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, 'subjects'), {
+    const docRef = await addDoc(collection(getDb(), 'subjects'), {
       ...subject,
       createdAt: serverTimestamp()
     });
@@ -221,7 +224,7 @@ export async function createSubject(subject: Omit<Subject, 'subjectId' | 'create
 // Material Management
 export async function getMaterials(filter?: MaterialFilter): Promise<Material[]> {
   try {
-    let q = query(collection(db, 'materials'));
+    let q = query(collection(getDb(), 'materials'));
     
     // Apply filters
     if (filter?.programmeId) {
@@ -271,7 +274,7 @@ export async function getMaterials(filter?: MaterialFilter): Promise<Material[]>
 
 export async function getMaterial(materialId: string): Promise<Material | null> {
   try {
-    const docSnap = await getDoc(doc(db, 'materials', materialId));
+    const docSnap = await getDoc(doc(getDb(), 'materials', materialId));
     if (docSnap.exists()) {
       return {
         ...docSnap.data(),
@@ -314,7 +317,7 @@ export async function createMaterial(
       views: 0
     };
     
-    const docRef = await addDoc(collection(db, 'materials'), materialData);
+    const docRef = await addDoc(collection(getDb(), 'materials'), materialData);
     return docRef.id;
   } catch (error) {
     console.error('Error creating material:', error);
@@ -324,7 +327,7 @@ export async function createMaterial(
 
 export async function updateMaterial(materialId: string, updates: Partial<Material>): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), updates);
+    await updateDoc(doc(getDb(), 'materials', materialId), updates);
   } catch (error) {
     console.error('Error updating material:', error);
     throw error;
@@ -333,7 +336,7 @@ export async function updateMaterial(materialId: string, updates: Partial<Materi
 
 export async function deleteMaterial(materialId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, 'materials', materialId));
+    await deleteDoc(doc(getDb(), 'materials', materialId));
   } catch (error) {
     console.error('Error deleting material:', error);
     throw error;
@@ -343,7 +346,7 @@ export async function deleteMaterial(materialId: string): Promise<void> {
 // Material approval functions for admin
 export async function approveMaterial(materialId: string, adminId: string): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'approved',
       approvedBy: adminId,
       approvedDate: serverTimestamp()
@@ -356,7 +359,7 @@ export async function approveMaterial(materialId: string, adminId: string): Prom
 
 export async function rejectMaterial(materialId: string, adminId: string, reason: string): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'rejected',
       approvedBy: adminId,
       approvedDate: serverTimestamp(),
@@ -373,7 +376,7 @@ export async function getPendingMaterials(): Promise<Material[]> {
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'materials'),
+        collection(getDb(), 'materials'),
         where('approvalStatus', '==', 'pending'),
         orderBy('uploadDate', 'desc')
       )
@@ -391,7 +394,7 @@ export async function getPendingMaterials(): Promise<Material[]> {
 // Lecturer Subject Management
 export async function getLecturerSubjects(lecturerId: string): Promise<string[]> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', lecturerId));
+    const userDoc = await getDoc(doc(getDb(), 'users', lecturerId));
     if (userDoc.exists()) {
       const userData = userDoc.data();
       return userData.teachingSubjects || [];
@@ -405,7 +408,7 @@ export async function getLecturerSubjects(lecturerId: string): Promise<string[]>
 
 export async function updateLecturerSubjects(lecturerId: string, subjectCodes: string[]): Promise<void> {
   try {
-    await updateDoc(doc(db, 'users', lecturerId), {
+    await updateDoc(doc(getDb(), 'users', lecturerId), {
       teachingSubjects: subjectCodes
     });
   } catch (error) {
@@ -417,7 +420,7 @@ export async function updateLecturerSubjects(lecturerId: string, subjectCodes: s
 export async function getEligibleLecturers(programmeId: string, subjectCode: string): Promise<User[]> {
   try {
     // Get lecturers who teach this subject and programme
-    const usersRef = collection(db, 'users');
+    const usersRef = collection(getDb(), 'users');
     const lecturerQuery = query(
       usersRef,
       where('role', '==', 'lecturer'),
@@ -447,7 +450,7 @@ export async function getPendingMaterialsForLecturer(lecturerId: string): Promis
     }
     
     // Get all pending materials
-    const materialsRef = collection(db, 'materials');
+    const materialsRef = collection(getDb(), 'materials');
     const pendingQuery = query(
       materialsRef,
       where('approvalStatus', '==', 'pending'),
@@ -477,7 +480,7 @@ export async function approveMaterialByLecturer(
   lecturerName: string
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'approved',
       approvedBy: lecturerId,
       approverName: lecturerName,
@@ -497,7 +500,7 @@ export async function rejectMaterialByLecturer(
   reason: string
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'rejected',
       approvedBy: lecturerId,
       approverName: lecturerName,
@@ -516,7 +519,7 @@ export async function incrementDownloadCount(materialId: string): Promise<void> 
   try {
     const material = await getMaterial(materialId);
     if (material) {
-      await updateDoc(doc(db, 'materials', materialId), {
+      await updateDoc(doc(getDb(), 'materials', materialId), {
         downloadCount: (material.downloadCount || 0) + 1,
         lastAccessed: serverTimestamp()
       });
@@ -531,7 +534,7 @@ export async function getPopularMaterials(limitCount: number = 10): Promise<Mate
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'materials'),
+        collection(getDb(), 'materials'),
         where('approvalStatus', '==', 'approved'),
         orderBy('downloadCount', 'desc'),
         limit(limitCount)
@@ -557,7 +560,7 @@ export async function getLecturerStats(lecturerId: string): Promise<{
   try {
     // Get lecturer's uploaded materials
     const materialsQuery = query(
-      collection(db, 'materials'),
+      collection(getDb(), 'materials'),
       where('uploaderId', '==', lecturerId)
     );
     const materialsSnapshot = await getDocs(materialsQuery);
@@ -595,7 +598,7 @@ export async function getLecturerStats(lecturerId: string): Promise<{
 // Comment System Functions
 export async function getComments(materialId: string): Promise<Comment[]> {
   try {
-    const commentsRef = collection(db, 'materials', materialId, 'comments');
+    const commentsRef = collection(getDb(), 'materials', materialId, 'comments');
     const querySnapshot = await getDocs(
       query(commentsRef, orderBy('createdAt', 'desc'))
     );
@@ -626,7 +629,7 @@ export async function addComment(
     if (commentData.files && commentData.files.length > 0) {
       for (const file of commentData.files) {
         const storageRef = ref(
-          storage, 
+          getStorageInstance(), 
           `comments/${commentData.materialId}/${Date.now()}_${file.name}`
         );
         
@@ -643,7 +646,7 @@ export async function addComment(
     }
 
     // Create comment document
-    const commentsRef = collection(db, 'materials', commentData.materialId, 'comments');
+    const commentsRef = collection(getDb(), 'materials', commentData.materialId, 'comments');
     const commentDoc = {
       materialId: commentData.materialId,
       content: commentData.content,
@@ -682,7 +685,7 @@ export async function addComment(
 
 export async function deleteComment(materialId: string, commentId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, 'materials', materialId, 'comments', commentId));
+    await deleteDoc(doc(getDb(), 'materials', materialId, 'comments', commentId));
   } catch (error) {
     console.error('Error deleting comment:', error);
     throw error;
@@ -697,7 +700,7 @@ export async function createCommentNotification(notificationData: NotificationCr
       ? notificationData.commentContent.substring(0, 100) + '...'
       : notificationData.commentContent;
 
-    const notificationsRef = collection(db, 'users', notificationData.userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', notificationData.userId, 'notifications');
     
     const notificationDoc = {
       ...notificationData,
@@ -716,7 +719,7 @@ export async function createCommentNotification(notificationData: NotificationCr
 
 export async function getCommentNotifications(userId: string): Promise<CommentNotification[]> {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
     
     const querySnapshot = await getDocs(
       query(notificationsRef, orderBy('createdAt', 'desc'))
@@ -734,7 +737,7 @@ export async function getCommentNotifications(userId: string): Promise<CommentNo
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
     const querySnapshot = await getDocs(
       query(notificationsRef, where('isRead', '==', false))
     );
@@ -748,7 +751,7 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
 
 export async function markNotificationAsRead(userId: string, notificationId: string): Promise<void> {
   try {
-    await updateDoc(doc(db, 'users', userId, 'notifications', notificationId), {
+    await updateDoc(doc(getDb(), 'users', userId, 'notifications', notificationId), {
       isRead: true
     });
   } catch (error) {
@@ -759,12 +762,12 @@ export async function markNotificationAsRead(userId: string, notificationId: str
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
     const querySnapshot = await getDocs(
       query(notificationsRef, where('isRead', '==', false))
     );
     
-    const batch = writeBatch(db);
+    const batch = writeBatch(getDb());
     querySnapshot.docs.forEach(doc => {
       batch.update(doc.ref, { isRead: true });
     });

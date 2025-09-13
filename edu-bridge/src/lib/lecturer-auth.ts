@@ -19,7 +19,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 
-import { auth, db } from './firebase';
+import { getAuthInstance, getDb } from './firebase';
 import type { 
   AuthError,
   RegistrationResponse,
@@ -90,7 +90,7 @@ export function validateInstitutionalEmail(email: string): { isValid: boolean; e
 export async function checkEmployeeIdExists(employeeId: string): Promise<boolean> {
   try {
     const q = query(
-      collection(db, 'users'),
+      collection(getDb(), 'users'),
       where('employeeId', '==', employeeId.trim().toUpperCase())
     );
     const snapshot = await getDocs(q);
@@ -137,7 +137,7 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
 
     // Create Firebase Auth user
     const userCredential: UserCredential = await createUserWithEmailAndPassword(
-      auth,
+      getAuthInstance(),
       formData.email,
       formData.password
     );
@@ -206,7 +206,7 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
 
     // Save to Firestore
     console.log('💾 Saving lecturer data to Firestore...', userData);
-    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+    await setDoc(doc(getDb(), 'users', userCredential.user.uid), userData);
     console.log('✅ Lecturer data saved successfully');
 
     // Convert to User type for response (with isVerified: false)

@@ -5,7 +5,7 @@ import {
   deleteObject,
   UploadTaskSnapshot 
 } from 'firebase/storage';
-import { storage } from './firebase';
+import { getStorageInstance } from './firebase';
 import { COMMENT_ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/types/academic';
 
 export interface FileUploadProgress {
@@ -114,8 +114,8 @@ export function uploadFile(
 ): Promise<FileUploadResult> {
   return new Promise((resolve, reject) => {
     // Debug: Check authentication
-    import('./firebase').then(({ auth }) => {
-      console.log('🔐 Upload attempt - User authenticated:', !!auth.currentUser);
+    import('./firebase').then(({ getAuthInstance }) => {
+      console.log('🔐 Upload attempt - User authenticated:', !!getAuthInstance().currentUser);
       console.log('🗂️ Upload path:', storagePath);
       console.log('📁 File details:', { name: file.name, type: file.type, size: file.size });
     });
@@ -127,7 +127,7 @@ export function uploadFile(
       return;
     }
 
-    const storageRef = ref(storage, storagePath);
+    const storageRef = ref(getStorageInstance(), storagePath);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on(
@@ -172,7 +172,7 @@ export function uploadFile(
  */
 export async function deleteFile(storagePath: string): Promise<void> {
   try {
-    const storageRef = ref(storage, storagePath);
+    const storageRef = ref(getStorageInstance(), storagePath);
     await deleteObject(storageRef);
   } catch (error) {
     console.error('Error deleting file:', error);

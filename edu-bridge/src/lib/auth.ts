@@ -14,17 +14,16 @@ import {
 import { 
   doc, 
   setDoc, 
-  getDoc, 
   query, 
   collection, 
   where, 
   getDocs,
   serverTimestamp,
-  Timestamp,
-  DocumentSnapshot 
+  Timestamp 
 } from 'firebase/firestore';
 
-import { auth, db } from './firebase';
+import { getAuthInstance, getDb } from './firebase';
+import { getUserProfileWithRetry, updateUserLastLogin } from './vercel-firestore';
 import { validateMatricId, formatPhoneNumber, generateDisplayName } from './validation';
 import type { 
   RegistrationFormData, 
@@ -44,7 +43,7 @@ import { AUTH_ERROR_CODES } from '@/types/user';
 export async function checkMatricIdExists(matricId: string): Promise<boolean> {
   try {
     const q = query(
-      collection(db, 'users'),
+      collection(getDb(), 'users'),
       where('matricId', '==', matricId.trim().toUpperCase())
     );
     const snapshot = await getDocs(q);
@@ -88,7 +87,7 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
 
     // Create Firebase Auth user
     const userCredential: UserCredential = await createUserWithEmailAndPassword(
-      auth,
+      getAuthInstance(),
       formData.email,
       formData.password
     );
@@ -141,7 +140,7 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
     };
 
     // Save to Firestore
-    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+    await setDoc(doc(getDb(), 'users', userCredential.user.uid), userData);
 
     // Convert to User type for response
     const user: User = {
@@ -179,60 +178,25 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
   try {
     // Sign in with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(
-      auth,
+      getAuthInstance(),
       formData.email,
       formData.password
     );
 
-    // Get user profile from Firestore with robust retry logic
-    let userDoc: DocumentSnapshot | undefined;
-    let retryCount = 0;
-    const maxRetries = 5;
+    // Get user profile using Vercel-optimized Firestore utilities
+    const userProfileResult = await getUserProfileWithRetry(userCredential.user.uid);
     
-    while (retryCount < maxRetries) {
-      try {
-        // Try getDoc first (more reliable on Vercel)
-        userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        
-        if (userDoc.exists()) {
-          break; // Success, exit retry loop
-        } else {
-          // Document doesn't exist, don't retry
-          break;
-        }
-      } catch (firestoreError) {
-        retryCount++;
-        
-        if (retryCount >= maxRetries) {
-          console.error('All Firestore connection attempts failed:', (firestoreError as Error)?.message);
-          throw firestoreError;
-        }
-        
-        const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000); // Max 10 seconds
-        console.warn(`Firestore connection attempt ${retryCount} failed, retrying in ${delay}ms...`);
-        
-        // Wait before retry with exponential backoff
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    if (!userDoc || !userDoc.exists()) {
+    if (!userProfileResult.success) {
       return {
         success: false,
-        error: {
-          code: 'user-profile-not-found',
-          message: 'User profile not found. Please contact admin.',
-        }
+        error: userProfileResult.error
       };
     }
 
-    const userData = userDoc.data() as UserProfile;
+    const userData = userProfileResult.user as UserProfile;
 
-    // Update last login
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
-      ...userData,
-      lastLogin: serverTimestamp()
-    }, { merge: true });
+    // Update last login using Vercel-optimized utilities
+    await updateUserLastLogin(userCredential.user.uid);
 
     // Convert to User type for response - include lecturer fields
     const user: User = {
@@ -274,7 +238,7 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
  */
 export async function logoutUser(): Promise<void> {
   try {
-    await signOut(auth);
+    await signOut(getAuthInstance());
   } catch (error) {
     console.error('Logout error:', error);
     throw error;
@@ -286,42 +250,14 @@ export async function logoutUser(): Promise<void> {
  */
 export async function getUserProfile(uid: string): Promise<User | null> {
   try {
-    // Get user profile with robust retry logic
-    let userDoc: DocumentSnapshot | undefined;
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Get user profile using Vercel-optimized utilities
+    const userProfileResult = await getUserProfileWithRetry(uid);
     
-    while (retryCount < maxRetries) {
-      try {
-        userDoc = await getDoc(doc(db, 'users', uid));
-        
-        if (userDoc.exists()) {
-          break; // Success, exit retry loop
-        } else {
-          // Document doesn't exist, don't retry
-          break;
-        }
-      } catch (firestoreError) {
-        retryCount++;
-        
-        if (retryCount >= maxRetries) {
-          console.error('All Firestore connection attempts failed:', (firestoreError as Error)?.message);
-          return null; // Return null instead of throwing for better UX
-        }
-        
-        const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 5000); // Max 5 seconds
-        console.warn(`Firestore connection attempt ${retryCount} failed, retrying in ${delay}ms...`);
-        
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    
-    if (!userDoc || !userDoc.exists()) {
+    if (!userProfileResult.success || !userProfileResult.user) {
       return null;
     }
 
-    const userData = userDoc.data() as UserProfile;
+    const userData = userProfileResult.user as UserProfile;
     
     return {
       uid: userData.uid,
@@ -423,7 +359,7 @@ function mapFirebaseError(error: unknown): AuthError {
  * Check if current user is authenticated
  */
 export function getCurrentUser(): FirebaseUser | null {
-  return auth.currentUser;
+  return getAuthInstance().currentUser;
 }
 
 /**
@@ -431,7 +367,7 @@ export function getCurrentUser(): FirebaseUser | null {
  */
 export function waitForAuthReady(): Promise<FirebaseUser | null> {
   return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = getAuthInstance().onAuthStateChanged((user: FirebaseUser | null) => {
       unsubscribe();
       resolve(user);
     });
