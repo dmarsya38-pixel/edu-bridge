@@ -145,6 +145,21 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
     // Send email verification
     await sendEmailVerification(userCredential.user);
 
+    // Fetch programme name from programmes collection
+    let programmeName = 'Unknown Programme';
+    try {
+      const programmesCollection = collection(getDb(), 'programmes');
+      const programmeQuery = query(programmesCollection, where('programmeId', '==', formData.programme));
+      const programmeSnapshot = await getDocs(programmeQuery);
+      
+      if (!programmeSnapshot.empty) {
+        const programmeData = programmeSnapshot.docs[0].data();
+        programmeName = programmeData.programmeName || 'Unknown Programme';
+      }
+    } catch (error) {
+      console.warn('Failed to fetch programme name during registration:', error);
+    }
+
     // Create lecturer profile in Firestore (auto-approved)
     const userData: CreateUserData & { 
       employeeId: string; 
@@ -167,7 +182,7 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
       // Teaching assignments (NEW)
       teachingSubjects: formData.subjects,
       programmes: [formData.programme], // Single programme as array
-      programName: 'Unknown Programme', // TODO: Fetch actual programme name from programmes collection
+      programName: programmeName, // Use fetched programme name
       
       // Auto-generated fields (not applicable for lecturers)
       politeknik: 'Politeknik Nilai',
