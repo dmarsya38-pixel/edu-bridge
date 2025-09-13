@@ -34,14 +34,11 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Enable Firestore persistence for better offline support
+// Enable Firestore persistence with conservative settings for Vercel compatibility
 if (typeof window !== 'undefined') {
+  // Only enable persistence in browser environments with error handling
   enableMultiTabIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Firestore persistence failed: Multiple tabs open, persistence can only be enabled in one tab at a time.');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Firestore persistence not available in this browser.');
-    }
+    console.warn('Firestore persistence disabled (common on Vercel):', err.message || 'Unknown error');
   });
 }
 
