@@ -183,10 +183,27 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       formData.password
     );
 
-    // Get user profile from Firestore
-    const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+    // Get user profile from Firestore with retry logic
+    let userDoc;
+    let retryCount = 0;
+    const maxRetries = 3;
     
-    if (!userDoc.exists()) {
+    while (retryCount < maxRetries) {
+      try {
+        userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        break;
+      } catch (firestoreError) {
+        retryCount++;
+        console.warn(`Firestore connection attempt ${retryCount} failed:`, (firestoreError as Error)?.message || 'Unknown error');
+        if (retryCount >= maxRetries) {
+          throw firestoreError;
+        }
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
+      }
+    }
+    
+    if (!userDoc || !userDoc.exists()) {
       return {
         success: false,
         error: {
@@ -341,7 +358,15 @@ function mapFirebaseError(error: unknown): AuthError {
     case AUTH_ERROR_CODES.NETWORK_REQUEST_FAILED:
       return {
         code: errorCode,
-        message: 'Network error. Please check your internet connection.'
+        message: 'Network error. Please check your internet connection and try again.'
+      };
+      
+    case 'firestore/failed-precondition':
+    case 'firestore/unavailable':
+    case 'firestore/deadline-exceeded':
+      return {
+        code: 'firestore-connection-error',
+        message: 'Unable to connect to the database. Please try again in a few moments.'
       };
       
     default:
