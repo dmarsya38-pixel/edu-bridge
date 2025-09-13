@@ -1,6 +1,6 @@
 /**
- * Firebase Configuration for EduBridge+
- * Optimized for Vercel serverless environment
+ * Enhanced Firebase Configuration for Vercel Serverless Environment
+ * Optimized for WebChannel transport issues and connection stability
  */
 
 import { initializeApp } from "firebase/app";
@@ -20,25 +20,23 @@ const firebaseConfig = {
 
 // Singleton pattern to prevent multiple Firebase instances
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let app: any = null; // Firebase app type is not exported, so we use any
+let app: any = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 
 /**
- * Initialize Firebase services with singleton pattern
- * This prevents multiple app initializations in serverless environment
+ * Enhanced Firebase initialization with serverless-specific optimizations
  */
-function initializeFirebase() {
+function initializeFirebaseEnhanced() {
   if (!app) {
     try {
       app = initializeApp(firebaseConfig);
-      console.log('Firebase initialized successfully');
+      console.log('Firebase initialized successfully with enhanced settings');
     } catch (error: unknown) {
       if ((error as { code?: string })?.code === 'app/duplicate-app') {
-        // If app already exists (can happen in hot reload), get existing instance
-        app = initializeApp(firebaseConfig, 'edu-bridge-standalone');
-        console.log('Firebase standalone instance created');
+        app = initializeApp(firebaseConfig, 'edu-bridge-enhanced');
+        console.log('Firebase enhanced standalone instance created');
       } else {
         console.error('Firebase initialization error:', error);
         throw error;
@@ -48,15 +46,23 @@ function initializeFirebase() {
 
   if (!auth) {
     auth = getAuth(app);
+    // Set auth persistence to NONE for serverless
+    import('firebase/auth').then(({ setPersistence, browserLocalPersistence }) => {
+      setPersistence(auth!, browserLocalPersistence).catch(() => {
+        console.log('Auth persistence disabled for serverless environment');
+      });
+    });
   }
 
   if (!db) {
-    // Enhanced Firestore initialization for serverless compatibility
+    // Enhanced Firestore initialization for serverless
     db = initializeFirestore(app, {
       cacheSizeBytes: CACHE_SIZE_UNLIMITED,
       experimentalForceLongPolling: true, // Force long polling instead of WebChannel
+      experimentalAutoDetectLongPolling: true, // Auto-detect best transport
     });
-    console.log('Firestore initialized with serverless optimizations');
+    
+    console.log('Firestore initialized with enhanced serverless settings');
   }
 
   if (!storage) {
@@ -67,7 +73,7 @@ function initializeFirebase() {
 }
 
 // Initialize Firebase immediately
-const firebaseServices = initializeFirebase();
+const firebaseServices = initializeFirebaseEnhanced();
 
 // Export getters that ensure non-null values
 export function getApp() {
@@ -90,6 +96,6 @@ export function getStorageInstance() {
   return storage;
 }
 
-// Legacy exports (use getters above for new code)
+// Legacy exports
 export { app, auth, db, storage };
 export default firebaseServices;

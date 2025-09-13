@@ -1,6 +1,6 @@
 /**
- * Firebase Configuration for EduBridge+
- * Optimized for Vercel serverless environment
+ * Firebase Configuration with Long Polling for Vercel Serverless
+ * Alternative approach when WebChannel transport fails
  */
 
 import { initializeApp } from "firebase/app";
@@ -8,7 +8,6 @@ import { getAuth, Auth } from "firebase/auth";
 import { Firestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCNlc-l1Mrfusljyw_9w0KUWpYkyKihHFc',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'edubridge-e5cba.firebaseapp.com',
@@ -18,29 +17,27 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:936901717954:web:7db68d1923f1874040705b',
 };
 
-// Singleton pattern to prevent multiple Firebase instances
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let app: any = null; // Firebase app type is not exported, so we use any
+let app: any = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 
 /**
- * Initialize Firebase services with singleton pattern
- * This prevents multiple app initializations in serverless environment
+ * Initialize Firebase with long polling configuration
+ * This bypasses WebChannel transport issues in serverless environments
  */
-function initializeFirebase() {
+function initializeFirebaseLongPolling() {
   if (!app) {
     try {
-      app = initializeApp(firebaseConfig);
-      console.log('Firebase initialized successfully');
+      app = initializeApp(firebaseConfig, 'edu-bridge-longpolling');
+      console.log('Firebase initialized with long polling configuration');
     } catch (error: unknown) {
       if ((error as { code?: string })?.code === 'app/duplicate-app') {
-        // If app already exists (can happen in hot reload), get existing instance
-        app = initializeApp(firebaseConfig, 'edu-bridge-standalone');
-        console.log('Firebase standalone instance created');
+        app = initializeApp(firebaseConfig, 'edu-bridge-longpolling-fallback');
+        console.log('Firebase long polling fallback instance created');
       } else {
-        console.error('Firebase initialization error:', error);
+        console.error('Firebase long polling initialization error:', error);
         throw error;
       }
     }
@@ -48,15 +45,21 @@ function initializeFirebase() {
 
   if (!auth) {
     auth = getAuth(app);
+    // Configure auth for serverless
+    auth.settings.appVerificationDisabledForTesting = false;
   }
 
   if (!db) {
-    // Enhanced Firestore initialization for serverless compatibility
+    // Force long polling to avoid WebChannel issues
     db = initializeFirestore(app, {
       cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-      experimentalForceLongPolling: true, // Force long polling instead of WebChannel
+      experimentalForceLongPolling: true,
+      experimentalLongPollingOptions: {
+        timeoutSeconds: 30,
+      },
     });
-    console.log('Firestore initialized with serverless optimizations');
+    
+    console.log('Firestore configured with long polling transport');
   }
 
   if (!storage) {
@@ -66,10 +69,9 @@ function initializeFirebase() {
   return { app, auth, db, storage };
 }
 
-// Initialize Firebase immediately
-const firebaseServices = initializeFirebase();
+// Initialize with long polling
+const firebaseServices = initializeFirebaseLongPolling();
 
-// Export getters that ensure non-null values
 export function getApp() {
   if (!app) throw new Error('Firebase app not initialized');
   return app;
@@ -90,6 +92,5 @@ export function getStorageInstance() {
   return storage;
 }
 
-// Legacy exports (use getters above for new code)
 export { app, auth, db, storage };
 export default firebaseServices;
