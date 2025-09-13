@@ -1,17 +1,27 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { ProgrammeBrowser } from '@/components/academic/ProgrammeBrowser';
+import { MaterialsList } from '@/components/academic/MaterialsList';
+import { DocumentViewer } from '@/components/academic/DocumentViewer';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
 import { LecturerMaterialApproval } from '@/components/lecturer/LecturerMaterialApproval';
-import { getPendingMaterialsForLecturer, getProgrammes, getLecturerStats } from '@/lib/academic';
+import { getPendingMaterialsForLecturer, getProgrammes, getLecturerStats, getSubjectByProgrammeAndCode } from '@/lib/academic';
 import type { User } from '@/types/user';
-import type { Programme } from '@/types/academic';
+import type { Programme, Subject, Material } from '@/types/academic';
 
 interface LecturerDashboardProps {
   user: User;
 }
 
+type ViewMode = 'dashboard' | 'browser' | 'materials';
+
 export function LecturerDashboard({ user }: LecturerDashboardProps) {
+  const searchParams = useSearchParams();
+  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -19,6 +29,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
   const [, setProgrammes] = useState<Programme[]>([]);
   const [lecturerProgramme, setLecturerProgramme] = useState<Programme | null>(null);
   const [programmeLoading, setProgrammeLoading] = useState(true);
+  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
   const [stats, setStats] = useState({
     materialsUploaded: 0,
     totalDownloads: 0,
@@ -162,6 +173,32 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     }
   }, [user, loadProgrammeData, loadStats, loadPendingCount]);
 
+  // Handle URL parameters for deep linking from notifications
+  useEffect(() => {
+    const programmeId = searchParams.get('programme');
+    const subjectCode = searchParams.get('subject');
+    const materialId = searchParams.get('material');
+    
+    if (programmeId && subjectCode && materialId) {
+      const loadSubjectFromUrl = async () => {
+        setIsLoadingFromUrl(true);
+        try {
+          const subject = await getSubjectByProgrammeAndCode(programmeId, subjectCode);
+          if (subject) {
+            setSelectedSubject(subject);
+            setViewMode('materials');
+          }
+        } catch (error) {
+          console.error('Error loading subject from URL:', error);
+        } finally {
+          setIsLoadingFromUrl(false);
+        }
+      };
+      
+      loadSubjectFromUrl();
+    }
+  }, [searchParams]);
+
   const handleUploadSuccess = (materialId: string) => {
     setUploadSuccess(materialId);
     setShowUploadModal(false);
@@ -178,6 +215,74 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     // Refresh stats when approval modal closes
     loadStats();
   };
+
+  const handleBrowseMaterials = () => {
+    setViewMode('browser');
+  };
+
+  const handleBackToDashboard = () => {
+    setViewMode('dashboard');
+    setSelectedSubject(null);
+  };
+
+  const handleBackToBrowser = () => {
+    setViewMode('browser');
+    setSelectedSubject(null);
+  };
+
+  const handleSubjectSelect = (subject: Subject) => {
+    setSelectedSubject(subject);
+    setViewMode('materials');
+  };
+
+  const handlePreviewMaterial = (material: Material) => {
+    setPreviewMaterial(material);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewMaterial(null);
+  };
+
+  // Render different views based on viewMode
+  if (viewMode === 'materials' && selectedSubject) {
+    return (
+      <>
+        <MaterialsList
+          subject={selectedSubject}
+          onBack={handleBackToBrowser}
+          onPreview={handlePreviewMaterial}
+        />
+        <DocumentViewer
+          material={previewMaterial!}
+          isOpen={!!previewMaterial}
+          onClose={handleClosePreview}
+        />
+      </>
+    );
+  }
+
+  if (viewMode === 'browser') {
+    return (
+      <div className="space-y-6">
+        {/* Header with back button */}
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleBackToDashboard}
+            className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+        <ProgrammeBrowser 
+          onSubjectSelect={handleSubjectSelect}
+          selectedProgrammeId={user.program}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -357,7 +462,10 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
             Access materials from other lecturers and departments for reference.
           </p>
-          <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          <button 
+            onClick={handleBrowseMaterials}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+          >
             Browse Library
           </button>
         </div>
