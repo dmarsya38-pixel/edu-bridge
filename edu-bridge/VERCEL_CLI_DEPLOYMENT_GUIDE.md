@@ -104,26 +104,45 @@ Building
 Completing
 ```
 
-## Step 6: Configure Environment Variables
+## Step 6: Configure Firebase Environment Variables (Critical for EduBridge+)
 
-### 6.1 Add environment variables one by one
+### 6.1 EduBridge+ Firebase Variables Required
+EduBridge+ requires these Firebase environment variables to function:
+
 ```bash
-# Example for each environment variable
-echo "your_value_here" | vercel env add VARIABLE_NAME production
+# Firebase Configuration (REQUIRED for EduBridge+)
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCNlc-l1Mrfusljyw_9w0KUWpYkyKihHFc
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=edubridge-e5cba.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=edubridge-e5cba
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=edubridge-e5cba.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=936901717954
+NEXT_PUBLIC_FIREBASE_APP_ID=1:936901717954:web:7db68d1923f1874040705b
 ```
 
-### 6.2 Add multiple environment variables
+### 6.2 Add Firebase Variables via CLI
 ```bash
-# Common Next.js environment variables
-echo "true" | vercel env add NEXT_PUBLIC_APP_ENV production
-echo "your_value" | vercel env add NEXT_PUBLIC_API_URL production
-echo "your_secret" | vercel env add API_SECRET_KEY production
+# Method 1: Using echo (recommended)
+echo "AIzaSyCNlc-l1Mrfusljyw_9w0KUWpYkyKihHFc" | vercel env add NEXT_PUBLIC_FIREBASE_API_KEY production
+echo "edubridge-e5cba.firebaseapp.com" | vercel env add NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN production
+echo "edubridge-e5cba" | vercel env add NEXT_PUBLIC_FIREBASE_PROJECT_ID production
+echo "edubridge-e5cba.firebasestorage.app" | vercel env add NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET production
+echo "936901717954" | vercel env add NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID production
+echo "1:936901717954:web:7db68d1923f1874040705b" | vercel env add NEXT_PUBLIC_FIREBASE_APP_ID production
 ```
 
-### 6.3 Verify environment variables
+### 6.3 Alternative: Add via Vercel Dashboard (Recommended)
+1. Go to [vercel.com](https://vercel.com)
+2. Navigate to your project
+3. Go to **Settings** → **Environment Variables**
+4. Add all Firebase variables with **Production** environment
+5. Redeploy after adding variables
+
+### 6.4 Verify environment variables
 ```bash
-vercel env ls
+vercel env ls production
 ```
+
+⚠️ **Important**: EduBridge+ has fallback values in `src/lib/firebase.ts`, but production environment variables are required for proper Firebase functionality.
 
 ## Step 7: Redeploy with Environment Variables
 
@@ -246,9 +265,55 @@ vercel --force              # Force deployment
 vercel --with-cache         # Use build cache
 ```
 
-## Troubleshooting Common Issues
+## EduBridge+-Specific Troubleshooting
 
-### Issue 1: "Command not found: vercel"
+### Issue 1: Firebase "auth/invalid-api-key" Error
+**Symptoms:** Build fails with Firebase authentication error
+**Solution:**
+```bash
+# Add Firebase environment variables (see Step 6)
+echo "AIzaSyCNlc-l1Mrfusljyw_9w0KUWpYkyKihHFc" | vercel env add NEXT_PUBLIC_FIREBASE_API_KEY production
+# Add all other Firebase variables...
+
+# Redeploy after adding variables
+vercel --prod --yes
+```
+
+### Issue 2: Build Fails with TypeScript Errors
+**Symptoms:** TypeScript compilation fails during build
+**Solution:**
+```bash
+# Check local build first
+npm run build
+
+# Fix TypeScript errors locally
+# Common issues: Missing type definitions, incorrect imports
+
+# Clear build cache and redeploy
+rm -rf .next .vercel
+vercel --prod --yes
+```
+
+### Issue 3: Firebase Connection Issues in Production
+**Symptoms:** "Failed to get document because the client is offline" errors
+**Solution:**
+EduBridge+ includes Firebase v10.12.0 with Vercel optimizations. If issues persist:
+```bash
+# Verify Firebase environment variables are set
+vercel env ls production
+
+# Check browser console for "Firebase initialized successfully"
+# The app should show this message on load
+```
+
+### Issue 4: Lecturer Dashboard Shows "Unknown Programme"
+**Symptoms:** Lecturer dashboard displays incorrect programme information
+**Solution:**
+This is automatically fixed in the latest version. The dashboard includes auto-fix logic that updates lecturer profiles with correct programme names.
+
+### Issue 5: General Vercel CLI Issues
+
+#### "Command not found: vercel"
 **Solution:**
 ```bash
 npm install -g vercel
@@ -256,21 +321,22 @@ npm install -g vercel
 npx vercel
 ```
 
-### Issue 2: Authentication errors
+#### Authentication errors
 **Solution:**
 ```bash
 vercel logout
 vercel login
 ```
 
-### Issue 3: Build failures
+#### Build failures
 **Solution:**
 ```bash
 # Check local build first
 npm run build
 
 # Clear Vercel cache
-vercel build --force
+rm -rf .vercel
+vercel --prod --yes
 
 # Check Node.js version
 node --version
@@ -337,6 +403,37 @@ sudo vercel --prod
 - Custom domain requirements
 - Advanced analytics needs
 - Team collaboration features
+
+## EduBridge+ Quick Reference
+
+### One-Command Deployment (After Setup)
+```bash
+# From your project directory
+cd edu-bridge
+git push origin <your-branch>
+vercel --prod --yes
+```
+
+### Firebase Variables Checklist
+- [ ] `NEXT_PUBLIC_FIREBASE_API_KEY`
+- [ ] `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` 
+- [ ] `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- [ ] `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- [ ] `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- [ ] `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+### Post-Deployment Testing
+1. **Check Firebase**: Browser console should show "Firebase initialized successfully"
+2. **Test Auth**: Login/logout functionality
+3. **Test Dashboard**: Verify programme names display correctly
+4. **Test Features**: Material upload, approval workflow
+
+### Expected Console Messages
+```
+✅ Firebase initialized successfully
+✅ Firestore initialized with serverless optimizations
+✅ Found programme via programmes array: Diploma in Business Information System
+```
 
 ## Support Resources
 
