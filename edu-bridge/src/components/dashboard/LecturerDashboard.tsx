@@ -81,6 +81,27 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
       
       setLecturerProgramme(userProgramme || null);
       
+      // Auto-fix: If user has "Unknown Programme" but we found the correct programme
+      if (userProgramme && user.programName === 'Unknown Programme') {
+        console.log('🔧 Auto-fixing lecturer programme name...');
+        try {
+          // Import here to avoid circular dependency
+          const { updateDoc, doc } = await import('firebase/firestore');
+          const { getDb } = await import('@/lib/firebase');
+          
+          await updateDoc(doc(getDb(), 'users', user.uid), {
+            programName: userProgramme.programmeName
+          });
+          
+          console.log(`✅ Fixed ${user.fullName}'s programme name: ${userProgramme.programmeName}`);
+          
+          // Force re-render by updating local state
+          // Note: The user object itself doesn't update, but the fix will apply on next login
+        } catch (fixError) {
+          console.error('❌ Failed to auto-fix programme name:', fixError);
+        }
+      }
+      
       if (!userProgramme) {
         console.error('❌ No programme found for lecturer:', {
           programmes: user.programmes,
@@ -190,7 +211,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
             <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Programme</h3>
             <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
               {programmeLoading ? 'Loading...' : 
-               user.programName ? user.programName : 
+               user.programName && user.programName !== 'Unknown Programme' ? user.programName : 
                lecturerProgramme ? lecturerProgramme.programmeName : 
                user.department ? `${user.department} Department` : 'No programme assigned'}
             </p>
