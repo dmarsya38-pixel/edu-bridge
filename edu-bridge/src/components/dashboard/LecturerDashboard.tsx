@@ -31,7 +31,6 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
   const [, setProgrammes] = useState<Programme[]>([]);
   const [lecturerProgramme, setLecturerProgramme] = useState<Programme | null>(null);
   const [programmeLoading, setProgrammeLoading] = useState(true);
-  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
   const [stats, setStats] = useState({
     materialsUploaded: 0,
     totalDownloads: 0,
@@ -183,7 +182,6 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
     
     if (programmeId && subjectCode && materialId) {
       const loadSubjectFromUrl = async () => {
-        setIsLoadingFromUrl(true);
         try {
           const subject = await getSubjectByProgrammeAndCode(programmeId, subjectCode);
           if (subject) {
@@ -192,11 +190,9 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
           }
         } catch (error) {
           console.error('Error loading subject from URL:', error);
-        } finally {
-          setIsLoadingFromUrl(false);
         }
       };
-      
+
       loadSubjectFromUrl();
     }
   }, [searchParams]);

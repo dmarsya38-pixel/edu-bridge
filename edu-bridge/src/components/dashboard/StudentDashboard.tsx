@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ProgrammeBrowser } from '@/components/academic/ProgrammeBrowser';
 import { MaterialsList } from '@/components/academic/MaterialsList';
 import { DocumentViewer } from '@/components/academic/DocumentViewer';
@@ -18,6 +18,7 @@ type ViewMode = 'dashboard' | 'browser' | 'materials';
 
 export function StudentDashboard({ user }: StudentDashboardProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
@@ -246,7 +247,10 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
             Update your profile, preferences, and notification settings.
           </p>
-          <button className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          <button
+            onClick={() => router.push('/profile')}
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+          >
             Manage Profile
           </button>
         </div>

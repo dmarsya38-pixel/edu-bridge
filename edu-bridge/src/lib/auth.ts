@@ -275,12 +275,27 @@ export async function getUserProfile(uid: string): Promise<User | null> {
       displayName: userData.profile?.displayName,
       isVerified: userData.isVerified,
 
+      // Include profile fields if they exist
+      profile: {
+        ...(userData.profile?.nickname && { nickname: userData.profile.nickname }),
+        ...(userData.profile?.bio && { bio: userData.profile.bio }),
+        ...(userData.profile?.interests && { interests: userData.profile.interests }),
+        ...(userData.profile?.displayName && { displayName: userData.profile.displayName }),
+        ...(userData.profile?.avatar && { avatar: userData.profile.avatar })
+      },
+
+      // Include preferences if they exist
+      preferences: {
+        ...(userData.preferences?.theme && { theme: userData.preferences.theme }),
+        ...(userData.preferences?.notifications !== undefined && { notifications: userData.preferences.notifications }),
+        ...(userData.preferences?.emailUpdates !== undefined && { emailUpdates: userData.preferences.emailUpdates })
+      },
+
       // Include lecturer-specific fields if they exist
       ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
       ...(userData.programmes && { programmes: userData.programmes }),
       ...(userData.department && { department: userData.department }),
-      ...(userData.employeeId && { employeeId: userData.employeeId }),
-      ...(userData.programName && { programName: userData.programName })
+      ...(userData.employeeId && { employeeId: userData.employeeId })
     };
 
   } catch (error) {
@@ -376,6 +391,68 @@ export function waitForAuthReady(): Promise<FirebaseUser | null> {
       resolve(user);
     });
   });
+}
+
+/**
+ * Update user profile and preferences
+ * Uses updateDoc to safely update only specified fields without overwriting existing data
+ */
+export async function updateUserProfile(
+  uid: string,
+  updates: {
+    profile?: {
+      nickname?: string;
+      bio?: string;
+      interests?: string[];
+    };
+    preferences?: {
+      theme?: 'light' | 'dark' | 'system';
+      notifications?: boolean;
+      emailUpdates?: boolean;
+    };
+  }
+): Promise<boolean> {
+  try {
+    const userDocRef = doc(getDb(), 'users', uid);
+
+    // Build update payload dynamically - only include provided fields
+    const updatePayload: Record<string, unknown> = {
+      lastLogin: serverTimestamp() // Update last login timestamp
+    };
+
+    // Add profile updates if provided
+    if (updates.profile) {
+      const profile = updates.profile;
+      Object.keys(profile).forEach(key => {
+        const profileKey = key as keyof typeof profile;
+        if (profile[profileKey] !== undefined) {
+          updatePayload[`profile.${profileKey}`] = profile[profileKey];
+        }
+      });
+    }
+
+    // Add preference updates if provided
+    if (updates.preferences) {
+      const preferences = updates.preferences;
+      Object.keys(preferences).forEach(key => {
+        const prefKey = key as keyof typeof preferences;
+        if (preferences[prefKey] !== undefined) {
+          updatePayload[`preferences.${prefKey}`] = preferences[prefKey];
+        }
+      });
+    }
+
+    // Use updateDoc to only update the specified fields
+    // This preserves all existing user data
+    await updateDoc(userDocRef, updatePayload);
+
+    console.log('User profile updated successfully for:', uid, updatePayload);
+    return true;
+
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
 }
 
 /**

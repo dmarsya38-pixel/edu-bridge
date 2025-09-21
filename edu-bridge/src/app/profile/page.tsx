@@ -20,6 +20,13 @@ export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
 
+  // Redirect students to student profile page
+  useEffect(() => {
+    if (user && user.role === 'student') {
+      router.push('/profile/student');
+    }
+  }, [user, router]);
+
   const [availableProgrammes, setAvailableProgrammes] = useState<Programme[]>([]);
   const [selectedProgramme, setSelectedProgramme] = useState<string>('');
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);

@@ -96,6 +96,21 @@ export interface User {
   displayName?: string;
   isVerified?: boolean;
 
+  // Profile fields
+  profile?: {
+    nickname?: string;
+    bio?: string;
+    interests?: string[];
+    displayName?: string;
+  };
+
+  // Preferences
+  preferences?: {
+    theme?: 'light' | 'dark' | 'system';
+    notifications?: boolean;
+    emailUpdates?: boolean;
+  };
+
   // Lecturer-specific fields
   teachingSubjects?: string[];    // Subject codes lecturer teaches ["DPP20023", "DBS2024"]
   programmes?: string[];          // Programmes lecturer can teach ["DBS", "DRM"]
