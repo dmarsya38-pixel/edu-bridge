@@ -64,7 +64,7 @@ export interface MaterialFilter {
   semester?: number;
   subjectCode?: string;
   materialType?: 'note' | 'exam_paper' | 'answer_scheme';
-  approvalStatus?: 'approved' | 'pending';
+  approvalStatus?: 'approved' | 'pending' | 'rejected';
   uploaderId?: string;
   searchQuery?: string;
 }

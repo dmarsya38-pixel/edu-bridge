@@ -211,15 +211,12 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Content Management</h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-            Manage academic programmes, subjects, and system content. Student material approval is now handled by lecturers.
+            Manage academic materials, delete inappropriate content, and moderate uploaded files. Student material approval is handled by lecturers.
           </p>
           <div className="space-y-2">
-            <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
-              Manage Programmes & Subjects
-            </button>
-            <button className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
-              View Content Library
-            </button>
+            <a href="/admin/materials" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors inline-block text-center">
+              Manage Materials
+            </a>
           </div>
         </div>
 

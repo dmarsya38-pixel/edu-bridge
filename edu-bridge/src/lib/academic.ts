@@ -405,6 +405,202 @@ export async function deleteMaterial(materialId: string): Promise<void> {
   }
 }
 
+export async function deleteMaterialWithStorage(materialId: string, adminId?: string, reason?: string): Promise<void> {
+  try {
+    // Get material details first for storage cleanup and audit
+    const material = await getMaterial(materialId);
+    if (!material) {
+      throw new Error('Material not found');
+    }
+
+    // Validate and sanitize material data
+    const sanitizedMaterial = {
+      ...material,
+      title: material.title || 'Unknown Title',
+      materialType: material.materialType || 'unknown',
+      uploaderName: material.uploaderName || 'Unknown User',
+      uploaderId: material.uploaderId || 'unknown',
+      downloadURL: material.downloadURL || null
+    };
+
+    // Validate required fields
+    if (!sanitizedMaterial.downloadURL) {
+      console.warn('⚠️ Material has no download URL, skipping storage deletion');
+    }
+
+    // Extract storage path from download URL
+    const storagePath = sanitizedMaterial.downloadURL
+      ? extractStoragePathFromURL(sanitizedMaterial.downloadURL)
+      : null;
+
+    // Try to delete from storage (don't fail if file doesn't exist)
+    if (storagePath && sanitizedMaterial.downloadURL) {
+      try {
+        const { deleteFile } = await import('./storage');
+        await deleteFile(storagePath);
+        console.log('🗑️ Storage file deleted:', storagePath);
+      } catch (storageError) {
+        console.warn('⚠️ Storage file deletion failed (file may not exist):', storageError);
+        // Continue with Firestore deletion even if storage fails
+      }
+    }
+
+    // Log admin action if admin details provided
+    if (adminId) {
+      try {
+        await logAdminAction({
+          adminId,
+          action: 'delete_material',
+          targetId: materialId,
+          targetType: 'material',
+          details: {
+            materialTitle: sanitizedMaterial.title,
+            materialType: sanitizedMaterial.materialType,
+            uploaderId: sanitizedMaterial.uploaderId,
+            uploaderName: sanitizedMaterial.uploaderName,
+            reason: reason || 'No reason provided'
+          }
+        });
+      } catch (logError) {
+        console.warn('⚠️ Failed to log admin action:', logError);
+        // Continue with deletion even if logging fails
+      }
+    }
+
+    // Delete Firestore document
+    await deleteDoc(doc(getDb(), 'materials', materialId));
+    console.log('🗑️ Material deleted from Firestore:', materialId);
+
+  } catch (error) {
+    console.error('Error deleting material with storage:', error);
+    throw error;
+  }
+}
+
+export async function getMaterialsWithFilters(filter?: MaterialFilter): Promise<{
+  materials: Material[];
+  total: number;
+}> {
+  try {
+    let q = query(collection(getDb(), 'materials'));
+
+    // Apply filters
+    if (filter?.programmeId) {
+      q = query(q, where('programmeId', '==', filter.programmeId));
+    }
+    if (filter?.semester) {
+      q = query(q, where('semester', '==', filter.semester));
+    }
+    if (filter?.subjectCode) {
+      q = query(q, where('subjectCode', '==', filter.subjectCode));
+    }
+    if (filter?.materialType) {
+      q = query(q, where('materialType', '==', filter.materialType));
+    }
+    if (filter?.approvalStatus) {
+      q = query(q, where('approvalStatus', '==', filter.approvalStatus));
+    }
+    if (filter?.uploaderId) {
+      q = query(q, where('uploaderId', '==', filter.uploaderId));
+    }
+
+    // Order by most recent
+    q = query(q, orderBy('uploadDate', 'desc'));
+
+    const querySnapshot = await getDocs(q);
+    let materials = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      materialId: doc.id
+    })) as Material[];
+
+    // Apply text search filter if provided
+    if (filter?.searchQuery) {
+      const searchTerm = filter.searchQuery.toLowerCase();
+      materials = materials.filter(material => {
+        const searchableText = [
+          material.title || '',
+          material.description || '',
+          material.subjectName || '',
+          material.uploaderName || '',
+          material.subjectCode || '',
+          material.programmeId || '',
+          material.materialType || ''
+        ].join(' ').toLowerCase();
+
+        return searchableText.includes(searchTerm);
+      });
+    }
+
+    return {
+      materials,
+      total: materials.length
+    };
+  } catch (error) {
+    console.error('Error fetching materials with filters:', error);
+    return {
+      materials: [],
+      total: 0
+    };
+  }
+}
+
+// Helper function to extract storage path from download URL
+function extractStoragePathFromURL(downloadURL: string): string | null {
+  if (!downloadURL || typeof downloadURL !== 'string') {
+    console.warn('⚠️ Invalid download URL provided');
+    return null;
+  }
+
+  try {
+    // Firebase Storage download URLs follow this pattern:
+    // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media&token={token}
+    const url = new URL(downloadURL);
+    const pathParts = url.pathname.split('/o/');
+
+    if (pathParts.length < 2) {
+      console.warn('⚠️ Invalid Firebase Storage URL format:', downloadURL);
+      return null;
+    }
+
+    // Decode the path part (URL encoded)
+    const encodedPath = pathParts[1].split('?')[0]; // Remove query parameters
+    if (!encodedPath) {
+      console.warn('⚠️ No path found in Firebase Storage URL:', downloadURL);
+      return null;
+    }
+
+    return decodeURIComponent(encodedPath);
+  } catch (error) {
+    console.warn('⚠️ Failed to extract storage path from URL:', downloadURL, error);
+    return null;
+  }
+}
+
+// Admin action logging interface
+interface AdminActionLog {
+  adminId: string;
+  action: string;
+  targetId: string;
+  targetType: string;
+  details: Record<string, unknown>;
+  timestamp: unknown;
+}
+
+// Log admin actions for audit trail
+async function logAdminAction(action: Omit<AdminActionLog, 'timestamp'>): Promise<void> {
+  try {
+    const logsRef = collection(getDb(), 'admin_logs');
+    await addDoc(logsRef, {
+      ...action,
+      timestamp: serverTimestamp()
+    });
+    console.log('📝 Admin action logged:', action.action);
+  } catch (error) {
+    console.error('Error logging admin action:', error);
+    throw error;
+  }
+}
+
 // Material approval functions for admin
 export async function approveMaterial(materialId: string, adminId: string): Promise<void> {
   try {
