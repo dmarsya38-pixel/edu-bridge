@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ProgrammeBrowser } from '@/components/academic/ProgrammeBrowser';
 import { MaterialsList } from '@/components/academic/MaterialsList';
 import { DocumentViewer } from '@/components/academic/DocumentViewer';
@@ -19,6 +20,7 @@ type ViewMode = 'dashboard' | 'browser' | 'materials';
 
 export function LecturerDashboard({ user }: LecturerDashboardProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
@@ -389,18 +391,6 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
             <p className="text-sm text-gray-600 dark:text-gray-400">Total Downloads</p>
           </div>
         </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            </div>
-            <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">32</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Forum Posts</p>
-          </div>
-        </div>
       </div>
 
       {/* Lecturer Features */}
@@ -484,7 +474,10 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
             Update your profile information, teaching subjects, and preferences.
           </p>
-          <button className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          <button
+            onClick={() => router.push('/profile')}
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+          >
             Manage Profile
           </button>
         </div>

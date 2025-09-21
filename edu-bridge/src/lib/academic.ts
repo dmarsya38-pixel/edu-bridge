@@ -135,6 +135,68 @@ export async function getSubjectsByProgramme(programmeId: string): Promise<Subje
   }
 }
 
+/**
+ * Get subjects by multiple programmes (for lecturer profile management)
+ * Returns subjects organized by programme and semester
+ */
+export async function getSubjectsByProgrammes(programmeIds: string[]): Promise<Map<string, Map<number, Subject[]>>> {
+  if (programmeIds.length === 0) {
+    return new Map();
+  }
+
+  const result = new Map<string, Map<number, Subject[]>>();
+
+  try {
+    console.log('🔍 Firestore query: Loading subjects for programmes', programmeIds);
+
+    // Create queries for each programme (Firestore 'in' operator has limit of 10 items)
+    const batchSize = 10;
+    const allSubjects: Subject[] = [];
+
+    for (let i = 0; i < programmeIds.length; i += batchSize) {
+      const batch = programmeIds.slice(i, i + batchSize);
+
+      const querySnapshot = await getDocs(
+        query(
+          collection(getDb(), 'subjects'),
+          where('programmeId', 'in', batch),
+          orderBy('programmeId'),
+          orderBy('semester'),
+          orderBy('subjectCode')
+        )
+      );
+
+      const batchSubjects = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        subjectId: doc.id
+      })) as Subject[];
+
+      allSubjects.push(...batchSubjects);
+    }
+
+    // Organize subjects by programme and semester
+    for (const subject of allSubjects) {
+      if (!result.has(subject.programmeId)) {
+        result.set(subject.programmeId, new Map());
+      }
+
+      const programmeSubjects = result.get(subject.programmeId)!;
+      if (!programmeSubjects.has(subject.semester)) {
+        programmeSubjects.set(subject.semester, []);
+      }
+
+      programmeSubjects.get(subject.semester)!.push(subject);
+    }
+
+    console.log(`✅ Loaded ${allSubjects.length} subjects across ${programmeIds.length} programmes`);
+    return result;
+
+  } catch (error) {
+    console.error('Error fetching subjects by programmes:', error);
+    return new Map();
+  }
+}
+
 // In-memory cache for subjects (per session)
 const subjectsCache = new Map<string, Subject[]>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes

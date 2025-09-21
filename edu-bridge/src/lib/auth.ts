@@ -3,7 +3,7 @@
  * Handles user registration, login, and user management
  */
 
-import { 
+import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -11,15 +11,18 @@ import {
   User as FirebaseUser,
   UserCredential
 } from 'firebase/auth';
-import { 
-  doc, 
-  setDoc, 
-  query, 
-  collection, 
-  where, 
+import {
+  doc,
+  setDoc,
+  updateDoc,
+  query,
+  collection,
+  where,
   getDocs,
+  getDoc,
   serverTimestamp,
-  Timestamp 
+  Timestamp,
+  FieldValue
 } from 'firebase/firestore';
 
 import { getAuthInstance, getDb } from './firebase';
@@ -152,7 +155,7 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      displayName: userData.profile.displayName,
+      displayName: userData.profile?.displayName,
       isVerified: userData.isVerified
     };
 
@@ -208,10 +211,10 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      avatar: userData.profile.avatar,
-      displayName: userData.profile.displayName,
+      avatar: userData.profile?.avatar,
+      displayName: userData.profile?.displayName,
       isVerified: userData.isVerified,
-      
+
       // Include lecturer-specific fields
       ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
       ...(userData.programmes && { programmes: userData.programmes }),
@@ -268,14 +271,15 @@ export async function getUserProfile(uid: string): Promise<User | null> {
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      avatar: userData.profile.avatar,
-      displayName: userData.profile.displayName,
+      avatar: userData.profile?.avatar,
+      displayName: userData.profile?.displayName,
       isVerified: userData.isVerified,
-      
+
       // Include lecturer-specific fields if they exist
       ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
       ...(userData.programmes && { programmes: userData.programmes }),
       ...(userData.department && { department: userData.department }),
+      ...(userData.employeeId && { employeeId: userData.employeeId }),
       ...(userData.programName && { programName: userData.programName })
     };
 
@@ -372,4 +376,64 @@ export function waitForAuthReady(): Promise<FirebaseUser | null> {
       resolve(user);
     });
   });
+}
+
+/**
+ * Update lecturer profile (programmes and teaching subjects only)
+ * Uses updateDoc to safely update only specified fields without overwriting existing data
+ */
+export async function updateLecturerProfile(
+  uid: string,
+  updates: {
+    programmes: string[];
+    teachingSubjects?: string[]; // Make optional to prevent accidental overwrites
+  }
+): Promise<boolean> {
+  try {
+    const userDocRef = doc(getDb(), 'users', uid);
+
+    // Fetch programme name for the new programme
+    let programmeName = 'Unknown Programme';
+    if (updates.programmes.length > 0) {
+      try {
+        const programmeDoc = await getDoc(doc(getDb(), 'programmes', updates.programmes[0]));
+        if (programmeDoc.exists()) {
+          const programmeData = programmeDoc.data();
+          programmeName = programmeData.programmeName || 'Unknown Programme';
+        }
+      } catch (error) {
+        console.warn('Failed to fetch programme name during profile update:', error);
+      }
+    }
+
+    // Build update payload dynamically - only include teachingSubjects if provided
+    const updatePayload: {
+      programmes: string[];
+      programmeName: string;
+      programName: string;
+      lastLogin: FieldValue;
+      teachingSubjects?: string[];
+    } = {
+      programmes: updates.programmes,
+      programmeName: programmeName, // Update programmeName as well
+      programName: programmeName, // Update programName to match programmeName from programmes collection
+      lastLogin: serverTimestamp() // Update last login timestamp
+    };
+
+    // Only include teachingSubjects if explicitly provided (prevents accidental overwrites)
+    if (updates.teachingSubjects !== undefined) {
+      updatePayload.teachingSubjects = updates.teachingSubjects;
+    }
+
+    // Use updateDoc to only update the specified fields
+    // This preserves all existing user data (name, email, profile, etc.)
+    await updateDoc(userDocRef, updatePayload);
+
+    console.log('Lecturer profile updated successfully for:', uid, { programmeName });
+    return true;
+
+  } catch (error) {
+    console.error('Error updating lecturer profile:', error);
+    throw error;
+  }
 }

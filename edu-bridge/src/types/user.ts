@@ -72,6 +72,7 @@ export interface UserProfile {
   teachingSubjects?: string[];    // Subject codes lecturer teaches
   programmes?: string[];          // Programmes lecturer can teach
   department?: string;            // Department lecturer belongs to
+  employeeId?: string;            // Employee ID for lecturers (e.g., "L001234")
   
   // Settings
   preferences: {
@@ -94,11 +95,12 @@ export interface User {
   avatar?: string;
   displayName?: string;
   isVerified?: boolean;
-  
+
   // Lecturer-specific fields
   teachingSubjects?: string[];    // Subject codes lecturer teaches ["DPP20023", "DBS2024"]
-  programmes?: string[];          // Programmes lecturer can teach ["DBS", "DRM"] 
+  programmes?: string[];          // Programmes lecturer can teach ["DBS", "DRM"]
   department?: string;            // "Commerce"
+  employeeId?: string;            // Employee ID for lecturers (e.g., "L001234")
 }
 
 // Auth context state
