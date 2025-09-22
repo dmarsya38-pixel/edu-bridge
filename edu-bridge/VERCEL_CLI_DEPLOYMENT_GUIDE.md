@@ -60,10 +60,25 @@ ls -la
 
 ## Step 4: Link Project to Vercel
 
-### 4.1 Link your project
+### 4.1 Choose your linking strategy
+
+**Option A: Link to New Project (First-time deployment)**
 ```bash
 vercel link --yes
 ```
+
+**Option B: Link to Existing Project (Update existing deployment)**
+```bash
+# Remove any existing .vercel directory first
+rm -rf .vercel
+
+# Link to existing project
+vercel link
+```
+- Select "yes" to set up the directory
+- Choose your scope (e.g., "Marsya Damia's projects")
+- When asked "Found project", select "no" to link to different existing project
+- Choose your existing project name (e.g., "edu-bridge-v1-06-fixed")
 
 ### 4.2 What happens during linking:
 - Vercel detects your project type (Next.js)
@@ -76,6 +91,12 @@ vercel link --yes
 ```bash
 cat .vercel/project.json
 # Should show your project ID and configuration
+```
+
+### 4.4 Check available projects
+```bash
+vercel projects
+# Lists all your Vercel projects with their names and URLs
 ```
 
 ## Step 5: Initial Deployment
@@ -311,7 +332,73 @@ vercel env ls production
 **Solution:**
 This is automatically fixed in the latest version. The dashboard includes auto-fix logic that updates lecturer profiles with correct programme names.
 
-### Issue 5: General Vercel CLI Issues
+### Issue 5: Deploying to Wrong Project (Creating New URLs Instead of Updating)
+
+**Symptoms:**
+- Each deployment creates a new URL with random hash (e.g., `edu-bridge-abc123.vercel.app`)
+- Want to update existing deployment (e.g., `edu-bridge-v1-06-fixed.vercel.app`)
+- Multiple projects listed in `vercel projects`
+
+**Solution:**
+```bash
+# 1. Check current project configuration
+cat .vercel/project.json
+# Shows which project you're currently linked to
+
+# 2. List all available projects
+vercel projects
+# Shows all your projects with their URLs
+
+# 3. Remove current configuration
+rm -rf .vercel
+
+# 4. Link to correct existing project
+vercel link
+# - Select "yes" to set up directory
+# - Choose your scope
+# - When asked "Found project", select "no"
+# - Choose your existing project name (e.g., "edu-bridge-v1-06-fixed")
+
+# 5. Deploy to correct project
+vercel --prod --yes
+```
+
+**Example workflow for edu-bridge-v1-06-fixed:**
+```bash
+# From the edu-bridge directory (where package.json is located)
+rm -rf .vercel
+vercel link
+# Answer: yes → Marsya Damia's projects → no → edu-bridge-v1-06-fixed
+vercel --prod --yes
+```
+
+### Issue 6: Multiple .vercel Directories Causing Conflicts
+
+**Symptoms:**
+- "The provided path does not exist" errors
+- Deployment works from parent directory but not subdirectory
+- Conflicting project configurations
+
+**Solution:**
+```bash
+# Check for multiple .vercel directories
+find . -name ".vercel" -type d
+
+# Remove all .vercel directories
+find . -name ".vercel" -type d -exec rm -rf {} +
+
+# Navigate to correct directory (where package.json is)
+cd edu-bridge
+
+# Relink to correct project
+vercel link
+# Choose your existing project
+
+# Deploy
+vercel --prod --yes
+```
+
+### Issue 7: General Vercel CLI Issues
 
 #### "Command not found: vercel"
 **Solution:**
@@ -342,7 +429,7 @@ vercel --prod --yes
 node --version
 ```
 
-### Issue 4: Environment variables not working
+### Issue 8: Environment variables not working
 **Solution:**
 ```bash
 # Verify variables are set
@@ -352,7 +439,7 @@ vercel env ls
 vercel --prod --yes
 ```
 
-### Issue 5: Permission errors
+### Issue 9: Permission errors
 **Solution:**
 ```bash
 # Check file permissions
@@ -412,6 +499,15 @@ sudo vercel --prod
 cd edu-bridge
 git push origin <your-branch>
 vercel --prod --yes
+```
+
+### Quick Reference: Deploy to Existing Project
+```bash
+# When you want to update an existing deployment instead of creating new URLs
+cd edu-bridge  # Navigate to directory with package.json
+rm -rf .vercel  # Remove current configuration
+vercel link     # Link to existing project (choose "no" when asked about found project)
+vercel --prod --yes  # Deploy to existing project
 ```
 
 ### Firebase Variables Checklist
