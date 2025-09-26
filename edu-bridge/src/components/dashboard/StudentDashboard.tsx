@@ -6,15 +6,17 @@ import { ProgrammeBrowser } from '@/components/academic/ProgrammeBrowser';
 import { MaterialsList } from '@/components/academic/MaterialsList';
 import { DocumentViewer } from '@/components/academic/DocumentViewer';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
+import { SearchBar } from '@/components/search/SearchBar';
+import { SearchResults } from '@/components/search/SearchResults';
 import { getSubjectByProgrammeAndCode } from '@/lib/academic';
 import type { User } from '@/types/user';
-import type { Subject, Material } from '@/types/academic';
+import type { Subject, Material, SearchResults as SearchResultsType } from '@/types/academic';
 
 interface StudentDashboardProps {
   user: User;
 }
 
-type ViewMode = 'dashboard' | 'browser' | 'materials';
+type ViewMode = 'dashboard' | 'browser' | 'materials' | 'search';
 
 export function StudentDashboard({ user }: StudentDashboardProps) {
   const searchParams = useSearchParams();
@@ -26,13 +28,40 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
 
-  // Handle URL parameters for deep linking from notifications
+  // Search state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<SearchResultsType | null>(null);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [highlight, setHighlight] = useState<string>('');
+  const [commentId, setCommentId] = useState<string>('');
+
+  // Handle URL parameters for deep linking from notifications and search
   useEffect(() => {
     const programmeId = searchParams.get('programme');
     const subjectCode = searchParams.get('subject');
     const materialId = searchParams.get('material');
-    
-    if (programmeId && subjectCode && materialId) {
+    const searchQueryParam = searchParams.get('searchQuery');
+    const highlightParam = searchParams.get('highlight');
+    const commentIdParam = searchParams.get('commentId');
+    const viewParam = searchParams.get('view');
+
+    // Handle view parameters
+    if (viewParam === 'browser') {
+      setViewMode('browser');
+      return;
+    }
+
+    // Handle search parameters
+    if (searchQueryParam) {
+      setSearchQuery(searchQueryParam);
+      setHighlight(highlightParam || searchQueryParam);
+      setCommentId(commentIdParam || '');
+      setViewMode('search');
+      return; // Prioritize search over other views
+    }
+
+    // Handle subject navigation (with or without specific material)
+    if (programmeId && subjectCode) {
       const loadSubjectFromUrl = async () => {
         setIsLoadingFromUrl(true);
         try {
@@ -40,6 +69,11 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           if (subject) {
             setSelectedSubject(subject);
             setViewMode('materials');
+
+            // If comment highlight is requested, store it
+            if (commentIdParam) {
+              setCommentId(commentIdParam);
+            }
           }
         } catch (error) {
           console.error('Error loading subject from URL:', error);
@@ -47,7 +81,7 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           setIsLoadingFromUrl(false);
         }
       };
-      
+
       loadSubjectFromUrl();
     }
   }, [searchParams]);
@@ -61,14 +95,10 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
     setViewMode('browser');
   };
 
-  const handleBackToDashboard = () => {
-    setViewMode('dashboard');
-    setSelectedSubject(null);
-  };
-
   const handleBackToBrowser = () => {
     setViewMode('browser');
     setSelectedSubject(null);
+    router.push('/dashboard?view=browser');
   };
 
   const handlePreviewMaterial = (material: Material) => {
@@ -82,9 +112,26 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
   const handleUploadSuccess = (materialId: string) => {
     setUploadSuccess(materialId);
     setShowUploadModal(false);
-    
+
     // Clear success message after 5 seconds
     setTimeout(() => setUploadSuccess(null), 5000);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setHighlight(query);
+    setViewMode('search');
+    router.push(`/dashboard?searchQuery=${encodeURIComponent(query)}`);
+  };
+
+  const handleBackToDashboard = () => {
+    setViewMode('dashboard');
+    setSelectedSubject(null);
+    setSearchQuery('');
+    setSearchResults(null);
+    setHighlight('');
+    setCommentId('');
+    router.push('/dashboard');
   };
 
   // Show loading state when navigating from URL
@@ -100,6 +147,25 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
   }
 
   // Render different views based on current mode
+  if (viewMode === 'search') {
+    return (
+      <>
+        <SearchResults
+          query={searchQuery}
+          highlight={highlight}
+          commentId={commentId}
+          onBack={handleBackToDashboard}
+          onPreview={handlePreviewMaterial}
+        />
+        <DocumentViewer
+          material={previewMaterial!}
+          isOpen={!!previewMaterial}
+          onClose={handleClosePreview}
+        />
+      </>
+    );
+  }
+
   if (viewMode === 'materials' && selectedSubject) {
     return (
       <>
@@ -107,6 +173,8 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           subject={selectedSubject}
           onBack={handleBackToBrowser}
           onPreview={handlePreviewMaterial}
+          highlight={highlight}
+          commentId={commentId}
         />
         <DocumentViewer
           material={previewMaterial!}
@@ -143,6 +211,15 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
 
   return (
     <>
+      {/* Search Bar - Global */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+        <SearchBar
+          onSearch={handleSearch}
+          placeholder="Search materials, subjects, programmes..."
+          className="w-full"
+        />
+      </div>
+
       {/* Welcome Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
         <div className="flex items-start justify-between">

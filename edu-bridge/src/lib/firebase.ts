@@ -56,6 +56,7 @@ function initializeFirebase() {
       cacheSizeBytes: CACHE_SIZE_UNLIMITED,
       experimentalForceLongPolling: true, // Force long polling instead of WebChannel
     });
+
     console.log('Firestore initialized with serverless optimizations');
   }
 

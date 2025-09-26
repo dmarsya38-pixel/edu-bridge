@@ -11,9 +11,10 @@ interface CommentSectionProps {
   materialId: string;
   isVisible: boolean;
   materialUploaderId?: string;
+  commentId?: string;
 }
 
-export function CommentSection({ materialId, isVisible, materialUploaderId }: CommentSectionProps) {
+export function CommentSection({ materialId, isVisible, materialUploaderId, commentId = '' }: CommentSectionProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -43,6 +44,29 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       loadComments();
     }
   }, [loadComments, isVisible]);
+
+  // Scroll to specific comment if commentId is provided
+  React.useEffect(() => {
+    if (isVisible && commentId && comments.length > 0) {
+      const timer = setTimeout(() => {
+        const commentElement = document.getElementById(`comment-${commentId}`);
+        if (commentElement) {
+          commentElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+
+          // Highlight the comment briefly
+          commentElement.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          setTimeout(() => {
+            commentElement.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          }, 3000);
+        }
+      }, 100); // Small delay to ensure comments are rendered
+
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, commentId, comments]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);

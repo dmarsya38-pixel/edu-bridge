@@ -26,7 +26,16 @@ import type {
   CommentCreateData,
   CommentAttachment,
   CommentNotification,
-  NotificationCreateData
+  NotificationCreateData,
+  SearchResults,
+  SearchResult,
+  SearchFilters,
+  SearchOptions,
+  SearchAllOptions,
+  CommentWithHighlight,
+  MaterialWithHighlight,
+  HighlightedFields,
+  SubjectSearchResult
 } from '@/types/academic';
 import type { User } from '@/types/user';
 
@@ -322,7 +331,7 @@ export async function getMaterials(filter?: MaterialFilter): Promise<Material[]>
       const searchTerm = filter.searchQuery.toLowerCase();
       materials = materials.filter(material =>
         material.title.toLowerCase().includes(searchTerm) ||
-        material.description?.toLowerCase().includes(searchTerm) ||
+        (material.description && material.description.toLowerCase().includes(searchTerm)) ||
         material.subjectName.toLowerCase().includes(searchTerm)
       );
     }
@@ -1034,5 +1043,471 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     throw error;
+  }
+}
+
+// =====================
+// SEARCH FEATURE FUNCTIONS
+// =====================
+
+/**
+ * Enhanced search function for materials with improved relevance scoring and highlighting
+ */
+export async function searchMaterials(
+  options: SearchOptions
+): Promise<{
+  materials: MaterialWithHighlight[];
+  total: number;
+}> {
+  try {
+    const { query: searchQuery, filters, sortBy = 'relevance', sortOrder = 'desc', limit = 20, offset = 0 } = options;
+
+    // Convert search options to material filter
+    const materialFilter: MaterialFilter = {
+      searchQuery,
+      programmeId: filters?.programmeId,
+      semester: filters?.semester,
+      subjectCode: filters?.subjectCode,
+      materialType: filters?.materialType,
+      uploaderId: filters?.uploaderId,
+      approvalStatus: 'approved' // Only search approved materials
+    };
+
+    // Get materials with basic filtering
+    let materials = await getMaterials(materialFilter);
+
+    // Enhanced text search with relevance scoring
+    if (searchQuery) {
+      const searchTerm = searchQuery.toLowerCase();
+
+      materials = materials.map(material => {
+        const materialWithHighlight = material as MaterialWithHighlight;
+        const searchableFields = [
+          { field: 'title', weight: 3, text: material.title },
+          { field: 'description', weight: 2, text: material.description || '' },
+          { field: 'subjectName', weight: 2, text: material.subjectName },
+          { field: 'uploaderName', weight: 1, text: material.uploaderName },
+          { field: 'subjectCode', weight: 1, text: material.subjectCode },
+          { field: 'materialType', weight: 1, text: material.materialType }
+        ];
+
+        let relevanceScore = 0;
+        const highlightedFields: HighlightedFields = {};
+
+        searchableFields.forEach(({ field, weight, text }) => {
+          if (text && text.toLowerCase().includes(searchTerm)) {
+            relevanceScore += weight;
+
+            // Create highlighted version
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            (highlightedFields as Record<string, string>)[field] = text.replace(regex, '<mark>$1</mark>');
+          }
+        });
+
+        if (relevanceScore > 0) {
+          materialWithHighlight.highlightedFields = highlightedFields;
+        }
+
+        return { ...materialWithHighlight, relevanceScore };
+      }).filter(material => material.relevanceScore > 0);
+
+      // Sort by relevance or other criteria
+      materials.sort((a, b) => {
+        const materialA = a as MaterialWithHighlight;
+        const materialB = b as MaterialWithHighlight;
+        if (sortBy === 'relevance') {
+          return sortOrder === 'desc' ? materialB.relevanceScore! - materialA.relevanceScore! : materialA.relevanceScore! - materialB.relevanceScore!;
+        } else if (sortBy === 'date') {
+          const dateA = a.uploadDate.toDate();
+          const dateB = b.uploadDate.toDate();
+          return sortOrder === 'desc' ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
+        } else if (sortBy === 'title') {
+          return sortOrder === 'desc' ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title);
+        } else if (sortBy === 'downloads') {
+          return sortOrder === 'desc' ? b.downloadCount - a.downloadCount : a.downloadCount - b.downloadCount;
+        }
+        return 0;
+      });
+    }
+
+    // Apply pagination
+    const startIndex = offset;
+    const endIndex = startIndex + limit;
+    const paginatedMaterials = materials.slice(startIndex, endIndex);
+
+    return {
+      materials: paginatedMaterials,
+      total: materials.length
+    };
+  } catch (error) {
+    console.error('Error searching materials:', error);
+    return {
+      materials: [],
+      total: 0
+    };
+  }
+}
+
+/**
+ * Search comments across all materials
+ */
+export async function searchComments(
+  searchQuery: string,
+  options?: {
+    materialId?: string;
+    programmeId?: string;
+    subjectCode?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{
+  comments: CommentWithHighlight[];
+  total: number;
+}> {
+  try {
+    const { materialId, programmeId, subjectCode, limit = 20, offset = 0 } = options || {};
+
+    // First, get relevant materials
+    const materialFilter: MaterialFilter = {
+      approvalStatus: 'approved',
+      ...(programmeId && { programmeId }),
+      ...(subjectCode && { subjectCode }),
+      ...(materialId && { subjectCode: materialId }) // This is a workaround, need to adjust logic
+    };
+
+    const materials = await getMaterials(materialFilter);
+
+    // Filter to specific material if requested
+    const relevantMaterials = materialId
+      ? materials.filter(m => m.materialId === materialId)
+      : materials;
+
+    // Get comments for each material
+    const allComments: CommentWithHighlight[] = [];
+
+    for (const material of relevantMaterials) {
+      try {
+        const commentsQuery = query(
+          collection(getDb(), 'materials', material.materialId, 'comments'),
+          orderBy('createdAt', 'desc')
+        );
+
+        const querySnapshot = await getDocs(commentsQuery);
+        const materialComments = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          commentId: doc.id,
+          materialTitle: material.title,
+          subjectCode: material.subjectCode,
+          programmeId: material.programmeId
+        })) as CommentWithHighlight[];
+
+        allComments.push(...materialComments);
+      } catch (error) {
+        console.warn(`Error loading comments for material ${material.materialId}:`, error);
+      }
+    }
+
+    // Filter comments by search query
+    let filteredComments = allComments;
+    if (searchQuery) {
+      const searchTerm = searchQuery.toLowerCase();
+
+      filteredComments = allComments.map(comment => {
+        const commentWithHighlight = comment as CommentWithHighlight;
+
+        // Check content and author name
+        const contentMatch = comment.content.toLowerCase().includes(searchTerm);
+        const authorMatch = comment.authorName.toLowerCase().includes(searchTerm);
+
+        if (contentMatch || authorMatch) {
+          const highlightedFields: HighlightedFields = {};
+
+          if (contentMatch) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            highlightedFields.content = comment.content.replace(regex, '<mark>$1</mark>');
+          }
+
+          if (authorMatch) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            highlightedFields.authorName = comment.authorName.replace(regex, '<mark>$1</mark>');
+          }
+
+          commentWithHighlight.highlightedFields = highlightedFields;
+          return commentWithHighlight;
+        }
+
+        return null;
+      }).filter(Boolean) as CommentWithHighlight[];
+    }
+
+    // Sort by creation date (newest first)
+    filteredComments.sort((a, b) => {
+      const dateA = a.createdAt.toDate();
+      const dateB = b.createdAt.toDate();
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    // Apply pagination
+    const startIndex = offset;
+    const endIndex = startIndex + limit;
+    const paginatedComments = filteredComments.slice(startIndex, endIndex);
+
+    return {
+      comments: paginatedComments,
+      total: filteredComments.length
+    };
+  } catch (error) {
+    console.error('Error searching comments:', error);
+    return {
+      comments: [],
+      total: 0
+    };
+  }
+}
+
+/**
+ * Search subjects by name and code
+ */
+export async function searchSubjects(
+  searchQuery: string,
+  options?: {
+    programmeId?: string;
+    semester?: number;
+    limit?: number;
+  }
+): Promise<{
+  subjects: SubjectSearchResult[];
+  total: number;
+}> {
+  try {
+    const { programmeId, semester, limit = 20 } = options || {};
+    const searchTerm = searchQuery.toLowerCase().trim();
+
+    if (!searchTerm) {
+      return { subjects: [], total: 0 };
+    }
+
+    // Build the query with optional filters
+    const constraints = [];
+    if (programmeId) {
+      constraints.push(where('programmeId', '==', programmeId));
+    }
+    if (semester) {
+      constraints.push(where('semester', '==', semester));
+    }
+
+    // Create the final query
+    const queryRef = constraints.length > 0
+      ? query(collection(getDb(), 'subjects'), ...constraints)
+      : query(collection(getDb(), 'subjects'));
+
+    const querySnapshot = await getDocs(queryRef);
+    const allSubjects = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      subjectId: doc.id
+    })) as Subject[];
+
+    // Filter and score subjects based on search term
+    const matchingSubjects = allSubjects
+      .map(subject => {
+        let relevanceScore = 0;
+        const highlightedFields: { subjectName?: string; subjectCode?: string } = {};
+
+        // Check subject name match
+        if (subject.subjectName.toLowerCase().includes(searchTerm)) {
+          relevanceScore += 3;
+          const regex = new RegExp(`(${searchTerm})`, 'gi');
+          highlightedFields.subjectName = subject.subjectName.replace(regex, '<mark>$1</mark>');
+        }
+
+        // Check subject code match
+        if (subject.subjectCode.toLowerCase().includes(searchTerm)) {
+          relevanceScore += 2;
+          const regex = new RegExp(`(${searchTerm})`, 'gi');
+          highlightedFields.subjectCode = subject.subjectCode.replace(regex, '<mark>$1</mark>');
+        }
+
+        // Check description match (lower weight)
+        if (subject.description && subject.description.toLowerCase().includes(searchTerm)) {
+          relevanceScore += 1;
+        }
+
+        return {
+          subject,
+          relevanceScore,
+          highlightedFields: Object.keys(highlightedFields).length > 0 ? highlightedFields : undefined
+        };
+      })
+      .filter(result => result.relevanceScore > 0)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, limit);
+
+    // Get material counts for each subject
+    const subjectsWithCounts = await Promise.all(
+      matchingSubjects.map(async ({ subject, relevanceScore, highlightedFields }) => {
+        // Count materials for this subject
+        const materialsQuery = query(
+          collection(getDb(), 'materials'),
+          where('subjectCode', '==', subject.subjectCode),
+          where('programmeId', '==', subject.programmeId),
+          where('approvalStatus', '==', 'approved')
+        );
+        const materialsSnapshot = await getDocs(materialsQuery);
+        const materialCount = materialsSnapshot.size;
+
+        return {
+          id: subject.subjectId,
+          type: 'subject' as const,
+          subjectCode: subject.subjectCode,
+          subjectName: subject.subjectName,
+          programmeId: subject.programmeId,
+          semester: subject.semester,
+          materialCount,
+          description: subject.description,
+          highlightedFields
+        } as SubjectSearchResult;
+      })
+    );
+
+    return {
+      subjects: subjectsWithCounts,
+      total: subjectsWithCounts.length
+    };
+  } catch (error) {
+    console.error('Error searching subjects:', error);
+    return { subjects: [], total: 0 };
+  }
+}
+
+/**
+ * Combined search function for both materials and comments
+ */
+export async function searchAll(
+  searchQuery: string,
+  options?: SearchAllOptions
+): Promise<SearchResults> {
+  try {
+    const { filters, sortBy, limit = 20 } = options || {};
+
+    // Search materials, comments, and subjects in parallel
+    const [materialsResult, commentsResult, subjectsResult] = await Promise.all([
+      searchMaterials({
+        query: searchQuery,
+        filters,
+        limit,
+        sortBy: sortBy || 'relevance',
+        sortOrder: 'desc'
+      }),
+      searchComments(searchQuery, {
+        programmeId: filters?.programmeId,
+        subjectCode: filters?.subjectCode,
+        limit
+      }),
+      searchSubjects(searchQuery, {
+        programmeId: filters?.programmeId,
+        semester: filters?.semester,
+        limit
+      })
+    ]);
+
+    // Convert materials to search results
+    const materialSearchResults: SearchResult[] = materialsResult.materials.map(material => ({
+      id: material.materialId,
+      type: 'material' as const,
+      title: material.title,
+      description: material.description,
+      snippet: material.highlightedFields?.title || material.highlightedFields?.description || material.title,
+      relevanceScore: material.relevanceScore || 0,
+      programmeId: material.programmeId,
+      subjectCode: material.subjectCode,
+      materialId: material.materialId,
+      authorName: material.uploaderName,
+      createdAt: material.uploadDate,
+      materialType: material.materialType,
+      fileSize: material.fileSize,
+      fileType: material.fileType,
+      downloadURL: material.downloadURL
+    }));
+
+    // Convert comments to search results
+    const commentSearchResults: SearchResult[] = commentsResult.comments.map(comment => ({
+      id: comment.commentId,
+      type: 'comment' as const,
+      title: comment.content.substring(0, 100) + (comment.content.length > 100 ? '...' : ''),
+      description: `Comment by ${comment.authorName}`,
+      snippet: comment.highlightedFields?.content || comment.content,
+      relevanceScore: 1, // Basic relevance for comments
+      programmeId: comment.programmeId,
+      subjectCode: comment.subjectCode,
+      materialId: comment.materialId,
+      commentId: comment.commentId,
+      authorName: comment.authorName,
+      createdAt: comment.createdAt
+    }));
+
+    // Sort all results by relevance
+    const allResults = [...materialSearchResults, ...commentSearchResults]
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, limit);
+
+    return {
+      materials: materialSearchResults,
+      comments: commentSearchResults,
+      subjects: subjectsResult.subjects,
+      totalMaterials: materialsResult.total,
+      totalComments: commentsResult.total,
+      totalSubjects: subjectsResult.total,
+      searchQuery,
+      filters: filters || {},
+      hasMore: materialsResult.total > limit || commentsResult.total > limit || subjectsResult.total > limit
+    };
+  } catch (error) {
+    console.error('Error in combined search:', error);
+    return {
+      materials: [],
+      comments: [],
+      subjects: [],
+      totalMaterials: 0,
+      totalComments: 0,
+      totalSubjects: 0,
+      searchQuery,
+      filters: {},
+      hasMore: false
+    };
+  }
+}
+
+/**
+ * Get search suggestions based on query
+ */
+export async function getSearchSuggestions(
+  query: string,
+  limit: number = 5
+): Promise<string[]> {
+  try {
+    if (query.length < 2) return [];
+
+    const suggestions: string[] = [];
+
+    // Get material titles that match
+    const materials = await getMaterials({
+      searchQuery: query,
+      approvalStatus: 'approved'
+    });
+
+    // Extract unique suggestions
+    const materialTitles = [...new Set(materials.map(m => m.title))];
+    const subjectNames = [...new Set(materials.map(m => m.subjectName))];
+    const uploaderNames = [...new Set(materials.map(m => m.uploaderName))];
+
+    // Add suggestions up to limit
+    suggestions.push(...materialTitles.slice(0, Math.floor(limit / 3)));
+    suggestions.push(...subjectNames.slice(0, Math.floor(limit / 3)));
+    suggestions.push(...uploaderNames.slice(0, Math.floor(limit / 3)));
+
+    return suggestions.slice(0, limit);
+  } catch (error) {
+    console.error('Error getting search suggestions:', error);
+    return [];
   }
 }

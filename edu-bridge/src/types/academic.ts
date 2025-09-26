@@ -182,3 +182,126 @@ export interface NotificationCreateData {
   subjectCode: string;
   programmeId: string;
 }
+
+// Search Feature Types
+export interface SearchResult {
+  id: string;
+  type: 'material' | 'comment';
+  title: string;
+  description?: string;
+  snippet?: string;
+  relevanceScore: number;
+  programmeId?: string;
+  subjectCode?: string;
+  materialId?: string;
+  commentId?: string;
+  authorName?: string;
+  createdAt?: Timestamp;
+  materialType?: 'note' | 'exam_paper' | 'answer_scheme';
+  fileSize?: number;
+  fileType?: string;
+  downloadURL?: string;
+}
+
+export interface HighlightedFields {
+  title?: string;
+  description?: string;
+  content?: string;
+  authorName?: string;
+}
+
+export interface SubjectSearchResult {
+  id: string;
+  type: 'subject';
+  subjectCode: string;
+  subjectName: string;
+  programmeId: string;
+  semester: number;
+  materialCount: number;
+  description?: string;
+  highlightedFields?: {
+    subjectName?: string;
+    subjectCode?: string;
+  };
+}
+
+export interface SearchResults {
+  materials: SearchResult[];
+  comments: SearchResult[];
+  subjects: SubjectSearchResult[];
+  totalMaterials: number;
+  totalComments: number;
+  totalSubjects: number;
+  searchQuery: string;
+  filters: SearchFilters;
+  hasMore: boolean;
+}
+
+export interface SearchFilters {
+  programmeId?: string;
+  subjectCode?: string;
+  materialType?: 'note' | 'exam_paper' | 'answer_scheme';
+  semester?: number;
+  uploaderId?: string;
+  dateRange?: {
+    start: Timestamp;
+    end: Timestamp;
+  };
+}
+
+export interface SearchSuggestion {
+  text: string;
+  type: 'material' | 'subject' | 'programme' | 'uploader';
+  count?: number;
+  programmeId?: string;
+  subjectCode?: string;
+}
+
+export interface SearchHistoryItem {
+  query: string;
+  timestamp: Timestamp;
+  resultsCount: number;
+  filters?: SearchFilters;
+}
+
+export type SearchSortBy = 'relevance' | 'date' | 'title' | 'downloads';
+export type SearchSortOrder = 'asc' | 'desc';
+
+export interface SearchOptions {
+  query: string;
+  filters?: SearchFilters;
+  sortBy?: SearchSortBy;
+  sortOrder?: SearchSortOrder;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SearchAllOptions {
+  filters?: SearchFilters;
+  sortBy?: SearchSortBy;
+  sortOrder?: SearchSortOrder;
+  limit?: number;
+  offset?: number;
+}
+
+// Extended Material interface for search highlighting
+export interface MaterialWithHighlight extends Material {
+  relevanceScore?: number;
+  highlightedFields?: {
+    title?: string;
+    description?: string;
+    subjectName?: string;
+    uploaderName?: string;
+  };
+}
+
+// Extended Comment interface for search highlighting
+export interface CommentWithHighlight extends Comment {
+  highlightedFields?: {
+    content?: string;
+    authorName?: string;
+  };
+  materialTitle?: string;
+  subjectCode?: string;
+  programmeId?: string;
+}

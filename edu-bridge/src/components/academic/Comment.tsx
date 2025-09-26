@@ -100,7 +100,10 @@ export function Comment({ comment, currentUserId, onDelete, materialUploaderId }
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+    <div
+      id={`comment-${comment.commentId}`}
+      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300"
+    >
       {/* Comment Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-3">

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { MaterialCard } from './MaterialCard';
 import { getMaterials } from '@/lib/academic';
 import type { Material, MaterialFilter } from '@/types/academic';
@@ -12,14 +12,17 @@ interface MaterialsListProps {
   subject: Subject;
   onBack?: () => void;
   onPreview?: (material: Material) => void;
+  highlight?: string;
+  commentId?: string;
 }
 
 interface MaterialsByYear {
   [year: string]: Material[];
 }
 
-export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps) {
+export function MaterialsList({ subject, onBack, onPreview, highlight = '', commentId = '' }: MaterialsListProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [materialsByYear, setMaterialsByYear] = useState<MaterialsByYear>({});
   const [loading, setLoading] = useState(true);
@@ -133,7 +136,10 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
           <div className="flex items-center space-x-3">
             {onBack && (
               <button
-                onClick={onBack}
+                onClick={() => {
+                  onBack?.();
+                  router.push('/dashboard?view=browser');
+                }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
               >
                 <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,6 +257,8 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
                         onPreview={onPreview}
                         showUploader={true}
                         initialShowComments={showComments && material.materialId === targetMaterialId}
+                        highlight={highlight}
+                        commentId={commentId}
                       />
                     ))}
                   </div>
