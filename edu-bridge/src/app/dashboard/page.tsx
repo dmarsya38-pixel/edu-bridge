@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -45,8 +46,14 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center h-16">
               {/* Logo */}
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">E+</span>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <Image
+                    src="/logo.png"
+                    alt="EduBridge+ Logo"
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                  />
                 </div>
                 <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                   EduBridge+

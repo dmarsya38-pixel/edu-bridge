@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { loginUser } from '@/lib/auth';
 import { validation } from '@/lib/validation';
 import type { LoginFormData, LoginStatus, ValidationState } from '@/types/user';
@@ -25,6 +26,7 @@ export default function LoginForm({ onSuccess, onRegisterRedirect }: LoginFormPr
     errors: {},
     touched: {}
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   // Handle input changes
   const handleInputChange = (field: keyof LoginFormData, value: string | boolean) => {
@@ -133,8 +135,15 @@ export default function LoginForm({ onSuccess, onRegisterRedirect }: LoginFormPr
     <div className="max-w-md mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-blue-500 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-          <span className="text-white text-2xl font-bold">E+</span>
+        <div className="mx-auto mb-4 flex items-center justify-center">
+          <Image
+            src="/logo.png"
+            alt="EduBridge+ Logo"
+            width={100}
+            height={100}
+            className="object-contain"
+            priority
+          />
         </div>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
           Welcome Back
@@ -176,19 +185,37 @@ export default function LoginForm({ onSuccess, onRegisterRedirect }: LoginFormPr
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              placeholder="Your password"
-              className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 ${
-                getFieldError('password')
-                  ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
-                  : 'border-gray-200 dark:border-gray-700 focus:ring-blue-500'
-              }`}
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                placeholder="Your password"
+                className={`w-full px-3 py-2 pr-10 border rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 ${
+                  getFieldError('password')
+                    ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
+                    : 'border-gray-200 dark:border-gray-700 focus:ring-blue-500'
+                }`}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                {showPassword ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
             {getFieldError('password') && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">{getFieldError('password')}</p>
             )}

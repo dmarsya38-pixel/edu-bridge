@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { AdminRoute } from '@/components/auth/ProtectedRoute';
 import { PendingUsersManager } from '@/components/admin/PendingUsersManager';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,8 +26,14 @@ export default function AdminPage() {
             <div className="flex justify-between items-center h-16">
               {/* Logo */}
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-red-500 rounded-xl flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">A</span>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <Image
+                    src="/logo.png"
+                    alt="EduBridge+ Logo"
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                  />
                 </div>
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
