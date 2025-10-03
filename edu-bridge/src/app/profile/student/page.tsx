@@ -68,6 +68,10 @@ export default function StudentProfilePage() {
     }
   };
 
+  const handleCancel = () => {
+    router.push('/dashboard');
+  };
+
   return (
     <StudentRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -206,8 +210,16 @@ export default function StudentProfilePage() {
                 </div>
               </div>
 
-              {/* Save Button */}
-              <div className="flex justify-end">
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
                 <button
                   type="submit"
                   disabled={isSaving}

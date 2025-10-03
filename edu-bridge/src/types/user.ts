@@ -41,7 +41,7 @@ export interface UserProfile {
   
   // Auto-extracted from Matric ID
   politeknik: string;        // "Politeknik Nilai"
-  program: string;           // "DBS", "DAC", "DEC"
+  program: string;           // "DBS", "DIB", "DIF", "DLS", "DRM", "DAC", "DEC"
   programName: string;       // "Diploma in Business Studies"
   entryYear: string;         // "2023"
   session: string;           // "F1", "F2"

@@ -183,6 +183,34 @@ export interface NotificationCreateData {
   programmeId: string;
 }
 
+// Material Approval Notification System Types
+export interface ApprovalNotification {
+  notificationId: string;
+  userId: string;           // Material owner who receives notification
+  materialId: string;
+  materialTitle: string;
+  approverId: string;       // Lecturer who approved/rejected
+  approverName: string;
+  approvalAction: 'approved' | 'rejected';
+  rejectionReason?: string;
+  createdAt: Timestamp;
+  isRead: boolean;
+  subjectCode: string;      // For navigation back to the material
+  programmeId: string;      // For navigation
+}
+
+export interface ApprovalNotificationCreateData {
+  userId: string;
+  materialId: string;
+  materialTitle: string;
+  approverId: string;
+  approverName: string;
+  approvalAction: 'approved' | 'rejected';
+  rejectionReason?: string;
+  subjectCode: string;
+  programmeId: string;
+}
+
 // Search Feature Types
 export interface SearchResult {
   id: string;

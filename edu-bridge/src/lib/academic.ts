@@ -16,6 +16,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getStorageInstance } from './firebase';
 import { getDb } from './firebase';
+import { sendCommentEmail, sendApprovalEmail, generateMaterialLink } from './email';
 import type {
   Programme,
   Subject,
@@ -27,6 +28,8 @@ import type {
   CommentAttachment,
   CommentNotification,
   NotificationCreateData,
+  ApprovalNotification,
+  ApprovalNotificationCreateData,
   SearchResults,
   SearchResult,
   SearchFilters,
@@ -742,17 +745,48 @@ export async function getPendingMaterialsForLecturer(lecturerId: string): Promis
 }
 
 export async function approveMaterialByLecturer(
-  materialId: string, 
-  lecturerId: string, 
+  materialId: string,
+  lecturerId: string,
   lecturerName: string
 ): Promise<void> {
   try {
+    // Get material details first for email notification
+    const material = await getMaterial(materialId);
+    if (!material) {
+      throw new Error('Material not found');
+    }
+
+    // Update material status
     await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'approved',
       approvedBy: lecturerId,
       approverName: lecturerName,
       approverRole: 'lecturer',
       approvedDate: serverTimestamp()
+    });
+
+    // Send in-app notification to material uploader
+    createApprovalNotification({
+      userId: material.uploaderId,
+      materialId: material.materialId,
+      materialTitle: material.title,
+      approverId: lecturerId,
+      approverName: lecturerName,
+      approvalAction: 'approved',
+      subjectCode: material.subjectCode,
+      programmeId: material.programmeId
+    }).catch(error => {
+      console.error('Failed to create approval notification:', error);
+    });
+
+    // Send email notification to material uploader
+    sendMaterialApprovalEmailNotification({
+      material,
+      approverName: lecturerName,
+      approvalAction: 'approved',
+      recipientUserId: material.uploaderId
+    }).catch(error => {
+      console.error('Failed to send approval email notification:', error);
     });
   } catch (error) {
     console.error('Error approving material by lecturer:', error);
@@ -761,12 +795,19 @@ export async function approveMaterialByLecturer(
 }
 
 export async function rejectMaterialByLecturer(
-  materialId: string, 
-  lecturerId: string, 
+  materialId: string,
+  lecturerId: string,
   lecturerName: string,
   reason: string
 ): Promise<void> {
   try {
+    // Get material details first for email notification
+    const material = await getMaterial(materialId);
+    if (!material) {
+      throw new Error('Material not found');
+    }
+
+    // Update material status
     await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'rejected',
       approvedBy: lecturerId,
@@ -774,6 +815,32 @@ export async function rejectMaterialByLecturer(
       approverRole: 'lecturer',
       rejectionReason: reason,
       approvedDate: serverTimestamp()
+    });
+
+    // Send in-app notification to material uploader
+    createApprovalNotification({
+      userId: material.uploaderId,
+      materialId: material.materialId,
+      materialTitle: material.title,
+      approverId: lecturerId,
+      approverName: lecturerName,
+      approvalAction: 'rejected',
+      rejectionReason: reason,
+      subjectCode: material.subjectCode,
+      programmeId: material.programmeId
+    }).catch(error => {
+      console.error('Failed to create rejection notification:', error);
+    });
+
+    // Send email notification to material uploader
+    sendMaterialApprovalEmailNotification({
+      material,
+      approverName: lecturerName,
+      approvalAction: 'rejected',
+      rejectionReason: reason,
+      recipientUserId: material.uploaderId
+    }).catch(error => {
+      console.error('Failed to send rejection email notification:', error);
     });
   } catch (error) {
     console.error('Error rejecting material by lecturer:', error);
@@ -880,6 +947,126 @@ export async function getComments(materialId: string): Promise<Comment[]> {
   }
 }
 
+// Send material approval notification email
+async function sendMaterialApprovalEmailNotification(params: {
+  material: Material;
+  approverName: string;
+  approvalAction: 'approved' | 'rejected';
+  rejectionReason?: string;
+  recipientUserId: string;
+}): Promise<void> {
+  try {
+    // Check if user wants email notifications
+    const userPrefs = await getUserEmailAndPreferences(params.recipientUserId);
+    if (!userPrefs || !userPrefs.emailUpdates) {
+      console.log('User has disabled email notifications or user not found');
+      return;
+    }
+
+    // Generate material link
+    const materialLink = generateMaterialLink(
+      params.material.programmeId,
+      params.material.subjectCode,
+      params.material.materialId,
+      false // Don't show comments for approval notifications
+    );
+
+    // Send email
+    const emailResult = await sendApprovalEmail({
+      userEmail: userPrefs.email,
+      approverName: params.approverName,
+      materialTitle: params.material.title,
+      approvalAction: params.approvalAction,
+      rejectionReason: params.rejectionReason,
+      materialLink,
+      programmeId: params.material.programmeId,
+      subjectCode: params.material.subjectCode
+    });
+
+    if (emailResult.success) {
+      console.log('✅ Approval email notification sent to:', userPrefs.email);
+      if (emailResult.messageId) {
+        console.log('📧 Email Message ID:', emailResult.messageId);
+      }
+    } else {
+      console.error('❌ Failed to send approval email notification to:', userPrefs.email);
+      console.error('Error details:', emailResult.message, emailResult.error);
+    }
+  } catch (error) {
+    console.error('❌ Failed to send approval email notification:', error);
+    // Don't throw error - email failures shouldn't break the approval functionality
+  }
+}
+
+// Helper function to get user email and preferences
+async function getUserEmailAndPreferences(userId: string): Promise<{ email: string; emailUpdates: boolean } | null> {
+  try {
+    const userDoc = await getDoc(doc(getDb(), 'users', userId));
+    if (!userDoc.exists()) {
+      return null;
+    }
+
+    const userData = userDoc.data();
+    return {
+      email: userData.email,
+      emailUpdates: userData.preferences?.emailUpdates ?? true // Default to true if not set
+    };
+  } catch (error) {
+    console.error('Error getting user email and preferences:', error);
+    return null;
+  }
+}
+
+// Helper function to send email notification for comments
+async function sendCommentEmailNotification(params: {
+  material: Material;
+  commenterName: string;
+  commentContent: string;
+  materialId: string;
+  recipientUserId: string;
+}): Promise<void> {
+  try {
+    // Check if user wants email notifications
+    const userPrefs = await getUserEmailAndPreferences(params.recipientUserId);
+    if (!userPrefs || !userPrefs.emailUpdates) {
+      console.log('User has disabled email notifications or user not found');
+      return;
+    }
+
+    // Generate material link
+    const materialLink = generateMaterialLink(
+      params.material.programmeId,
+      params.material.subjectCode,
+      params.materialId,
+      true // Show comments by default
+    );
+
+    // Send email
+    const emailResult = await sendCommentEmail({
+      userEmail: userPrefs.email,
+      commenterName: params.commenterName,
+      materialTitle: params.material.title,
+      commentContent: params.commentContent,
+      materialLink,
+      programmeId: params.material.programmeId,
+      subjectCode: params.material.subjectCode
+    });
+
+    if (emailResult.success) {
+      console.log('✅ Email notification sent to:', userPrefs.email);
+      if (emailResult.messageId) {
+        console.log('📧 Email Message ID:', emailResult.messageId);
+      }
+    } else {
+      console.error('❌ Failed to send email notification to:', userPrefs.email);
+      console.error('Error details:', emailResult.message, emailResult.error);
+    }
+  } catch (error) {
+    console.error('❌ Failed to send email notification:', error);
+    // Don't throw error - email failures shouldn't break the comment functionality
+  }
+}
+
 export async function addComment(
   commentData: CommentCreateData,
   authorId: string,
@@ -941,6 +1128,17 @@ export async function addComment(
       }).catch(error => {
         console.error('Failed to create notification:', error);
       });
+
+      // Send email notification (don't wait for it)
+      sendCommentEmailNotification({
+        material,
+        commenterName: authorName,
+        commentContent: commentData.content,
+        materialId: material.materialId,
+        recipientUserId: material.uploaderId
+      }).catch(error => {
+        console.error('Failed to send email notification:', error);
+      });
     }
     
     return docRef.id;
@@ -980,6 +1178,24 @@ export async function createCommentNotification(notificationData: NotificationCr
     return docRef.id;
   } catch (error) {
     console.error('Error creating comment notification:', error);
+    throw error;
+  }
+}
+
+export async function createApprovalNotification(notificationData: ApprovalNotificationCreateData): Promise<string> {
+  try {
+    const notificationsRef = collection(getDb(), 'users', notificationData.userId, 'notifications');
+
+    const notificationDoc = {
+      ...notificationData,
+      createdAt: serverTimestamp(),
+      isRead: false
+    };
+
+    const docRef = await addDoc(notificationsRef, notificationDoc);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating approval notification:', error);
     throw error;
   }
 }
@@ -1043,6 +1259,50 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     throw error;
+  }
+}
+
+// =====================
+// APPROVAL NOTIFICATION FUNCTIONS
+// =====================
+
+export async function getApprovalNotifications(userId: string): Promise<ApprovalNotification[]> {
+  try {
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
+
+    const querySnapshot = await getDocs(
+      query(
+        notificationsRef,
+        where('approvalAction', 'in', ['approved', 'rejected']),
+        orderBy('createdAt', 'desc')
+      )
+    );
+
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      notificationId: doc.id
+    })) as ApprovalNotification[];
+  } catch (error) {
+    console.error('Error fetching approval notifications:', error);
+    return [];
+  }
+}
+
+export async function getAllNotifications(userId: string): Promise<(CommentNotification | ApprovalNotification)[]> {
+  try {
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
+
+    const querySnapshot = await getDocs(
+      query(notificationsRef, orderBy('createdAt', 'desc'))
+    );
+
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      notificationId: doc.id
+    })) as (CommentNotification | ApprovalNotification)[];
+  } catch (error) {
+    console.error('Error fetching all notifications:', error);
+    return [];
   }
 }
 
