@@ -34,7 +34,7 @@ interface EmailTestResult {
 const transporter = nodemailer.createTransport({
   host: process.env.GMAIL_HOST,
   port: parseInt(process.env.GMAIL_PORT || '587'),
-  secure: false, // Use TLS
+  secure: parseInt(process.env.GMAIL_PORT || '587') === 465, // Use SSL for port 465, TLS for port 587
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASS,
