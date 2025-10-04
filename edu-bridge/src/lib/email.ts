@@ -335,7 +335,6 @@ export function generateApprovalEmailTemplate(data: ApprovalEmailData): string {
   const headerIcon = isApproval ? '✅' : '❌';
   const headerTitle = isApproval ? 'Your Material Has Been Approved! 🎉' : 'Update on Your Material Submission';
   const actionText = isApproval ? 'approved' : 'rejected';
-  const actionVerb = isApproval ? 'Approve' : 'Reject';
   const buttonColor = isApproval ? '#059669' : '#dc2626';
   const buttonHover = isApproval ? '#047857' : '#b91c1c';
 

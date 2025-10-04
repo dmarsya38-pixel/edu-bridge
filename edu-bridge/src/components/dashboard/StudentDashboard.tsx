@@ -304,7 +304,7 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Upload Materials</h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-            Share your notes and resources with classmates. Uploads require admin approval.
+            Share your notes and resources with classmates. Uploads require Lecturer approval.
           </p>
           <button 
             onClick={() => setShowUploadModal(true)}
