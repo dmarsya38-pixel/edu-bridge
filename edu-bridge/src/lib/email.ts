@@ -76,11 +76,11 @@ export async function debugEmailSystem() {
   console.log('🔧 Starting email system debug...\n');
 
   // Step 1: Check configuration
-  console.log('1. Checking Gmail configuration...');
+  console.log('1. Checking Resend configuration...');
   const configCheck = await checkEmailConfiguration();
 
   if (!configCheck.success) {
-    console.log('❌ Gmail configuration issues:');
+    console.log('❌ Resend configuration issues:');
     console.log('   Message:', configCheck.message);
     if (configCheck.missingVars) {
       console.log('   Missing variables:', configCheck.missingVars.join(', '));
@@ -89,26 +89,24 @@ export async function debugEmailSystem() {
     return configCheck;
   }
 
-  console.log('✅ Gmail configuration is complete');
-  console.log('   Host:', configCheck.config?.host);
-  console.log('   Port:', configCheck.config?.port);
-  console.log('   User:', configCheck.config?.user);
-  console.log('   From:', configCheck.config?.from);
+  console.log('✅ Resend configuration is complete');
+  console.log('   Has API Key:', configCheck.config?.hasApiKey);
+  console.log('   From Email:', configCheck.config?.fromEmail);
 
   // Step 2: Verify connection
-  console.log('\n2. Verifying Gmail transporter connection...');
+  console.log('\n2. Verifying Resend API connection...');
   const connectionOk = await verifyEmailConnection();
 
   if (!connectionOk) {
-    console.log('❌ Gmail transporter connection failed');
+    console.log('❌ Resend API connection failed');
     return {
       success: false,
-      message: 'Gmail transporter connection failed',
+      message: 'Resend API connection failed',
       config: configCheck.config
     };
   }
 
-  console.log('✅ Gmail transporter connection verified');
+  console.log('✅ Resend API connection verified');
 
   // Step 3: Send test email (optional - would require user email)
   console.log('\n3. Email system is ready to send emails');
@@ -149,11 +147,13 @@ export async function sendTestEmailEnhanced(userEmail: string): Promise<EmailTes
       console.log('   Error details:', result.error);
     }
 
-    // Provide helpful guidance for common Gmail errors
-    if (result.error?.includes('Username and Password not accepted')) {
-      console.log('💡 Solution: Check your Gmail credentials and enable "Less secure app access"');
-    } else if (result.error?.includes('Please log in via your web browser')) {
-      console.log('💡 Solution: Enable "Less secure app access" in your Google Account settings');
+    // Provide helpful guidance for common Resend errors
+    if (result.error?.includes('API key is invalid')) {
+      console.log('💡 Solution: Check your Resend API key and ensure it\'s valid');
+    } else if (result.error?.includes('Domain not verified')) {
+      console.log('💡 Solution: Verify your domain in Resend dashboard or use onboarding@resend.dev');
+    } else if (result.error?.includes('missing_api_key')) {
+      console.log('💡 Solution: Add your Resend API key to environment variables');
     }
   }
 

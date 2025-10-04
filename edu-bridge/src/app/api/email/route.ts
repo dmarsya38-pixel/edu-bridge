@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
+
+// Initialize Resend client lazily to avoid build-time errors
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY environment variable is not set');
+  }
+  return new Resend(apiKey);
+}
 
 // Email data interfaces
 interface CommentEmailData {
@@ -30,16 +39,22 @@ interface EmailTestResult {
   messageId?: string;
 }
 
-// Create Gmail nodemailer transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.GMAIL_HOST,
-  port: parseInt(process.env.GMAIL_PORT || '587'),
-  secure: parseInt(process.env.GMAIL_PORT || '587') === 465, // Use SSL for port 465, TLS for port 587
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
-  },
-});
+// Check Resend configuration
+function checkResendConfiguration() {
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+  const isConfigured = !!apiKey;
+
+  return {
+    config: {
+      hasApiKey: !!apiKey,
+      fromEmail
+    },
+    missingVars: !apiKey ? ['RESEND_API_KEY'] : [],
+    isConfigured
+  };
+}
 
 // Generate comment notification email template
 function generateCommentEmailTemplate(data: CommentEmailData): string {
@@ -398,186 +413,157 @@ function generateApprovalEmailTemplate(data: ApprovalEmailData): string {
   `;
 }
 
-// Check Gmail configuration
-function checkGmailConfiguration() {
-  const config = {
-    host: process.env.GMAIL_HOST,
-    port: process.env.GMAIL_PORT,
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS ? '***' : undefined,
-    from: process.env.GMAIL_FROM || 'EduBridge <your-email@gmail.com>'
-  };
-
-  const missingVars = Object.entries(config)
-    .filter(([, value]) => value === undefined || value === '')
-    .map(([key]) => `GMAIL_${key.toUpperCase()}`);
-
-  return {
-    config,
-    missingVars,
-    isConfigured: missingVars.length === 0
-  };
-}
-
-// Send comment notification email
+// Send comment notification email using Resend
 async function sendCommentEmail(data: CommentEmailData): Promise<EmailTestResult> {
   try {
     // Check configuration first
-    const configCheck = checkGmailConfiguration();
+    const configCheck = checkResendConfiguration();
     if (!configCheck.isConfigured) {
-      console.error('❌ Gmail configuration incomplete:', {
+      console.error('❌ Resend configuration incomplete:', {
         missingVars: configCheck.missingVars,
         config: configCheck.config
       });
       return {
         success: false,
-        message: 'Gmail configuration incomplete',
+        message: 'Resend configuration incomplete',
         error: `Missing environment variables: ${configCheck.missingVars.join(', ')}`
       };
     }
 
-    console.log('🔧 Gmail configuration check:', {
-      host: configCheck.config.host,
-      port: configCheck.config.port,
-      user: configCheck.config.user,
-      from: configCheck.config.from,
-      hasPassword: !!configCheck.config.pass
+    console.log('🔧 Resend configuration check:', {
+      hasApiKey: configCheck.config.hasApiKey,
+      fromEmail: configCheck.config.fromEmail
     });
 
-    // Verify connection first
-    console.log('🔄 Verifying Gmail transporter connection...');
-    await transporter.verify();
-    console.log('✅ Gmail transporter connection verified');
+    const subject = `${data.commenterName} commented on your material`;
+    const html = generateCommentEmailTemplate(data);
+    const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-    const mailOptions = {
-      from: configCheck.config.from,
+    console.log('📧 Sending email via Resend:', {
       to: data.userEmail,
-      subject: `${data.commenterName} commented on your material`,
-      html: generateCommentEmailTemplate(data),
+      subject,
+      from
+    });
+
+    const resend = getResendClient();
+    const { data: emailData, error } = await resend.emails.send({
+      from,
+      to: [data.userEmail],
+      subject,
+      html,
       text: `${data.commenterName} commented on your material "${data.materialTitle}"\n\n"${data.commentContent.substring(0, 200)}${data.commentContent.length > 200 ? '...' : ''}"\n\nView the full comment: ${data.materialLink}`,
-    };
-
-    console.log('📧 Sending email:', {
-      to: data.userEmail,
-      subject: mailOptions.subject,
-      from: mailOptions.from
     });
 
-    const result = await transporter.sendMail(mailOptions);
+    if (error) {
+      console.error('❌ Resend email error:', error);
+      return {
+        success: false,
+        message: 'Failed to send email via Resend',
+        error: error.message
+      };
+    }
 
-    console.log('✅ Email sent successfully:', {
+    console.log('✅ Email sent successfully via Resend:', {
       to: data.userEmail,
-      subject: mailOptions.subject,
-      messageId: result.messageId,
-      response: result.response
+      subject,
+      emailId: emailData?.id
     });
 
     return {
       success: true,
       message: 'Email sent successfully',
-      messageId: result.messageId
+      messageId: emailData?.id
     };
   } catch (error) {
-    console.error('❌ Failed to send email:', {
+    console.error('❌ Failed to send email via Resend:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       to: data.userEmail
     });
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    let userFriendlyMessage = 'Failed to send email';
-
-    // Handle specific Gmail errors
-    if (errorMessage.includes('Username and Password not accepted')) {
-      userFriendlyMessage = 'Gmail authentication failed. Check your email and app password.';
-    } else if (errorMessage.includes('Please log in via your web browser')) {
-      userFriendlyMessage = 'Gmail requires enabling "Less secure app access" or using an app password.';
-    }
 
     return {
       success: false,
-      message: userFriendlyMessage,
+      message: 'Failed to send email',
       error: errorMessage
     };
   }
 }
 
-// Send approval notification email
+// Send approval notification email using Resend
 async function sendApprovalEmail(data: ApprovalEmailData): Promise<EmailTestResult> {
   try {
     // Check configuration first
-    const configCheck = checkGmailConfiguration();
+    const configCheck = checkResendConfiguration();
     if (!configCheck.isConfigured) {
-      console.error('❌ Gmail configuration incomplete:', {
+      console.error('❌ Resend configuration incomplete:', {
         missingVars: configCheck.missingVars,
         config: configCheck.config
       });
       return {
         success: false,
-        message: 'Gmail configuration incomplete',
+        message: 'Resend configuration incomplete',
         error: `Missing environment variables: ${configCheck.missingVars.join(', ')}`
       };
     }
-
-    // Verify connection first
-    console.log('🔄 Verifying Gmail transporter connection...');
-    await transporter.verify();
-    console.log('✅ Gmail transporter connection verified');
 
     const isApproval = data.approvalAction === 'approved';
     const subject = isApproval
       ? `Your material "${data.materialTitle}" has been approved! 🎉`
       : `Update on your material "${data.materialTitle}"`;
 
-    const mailOptions = {
-      from: configCheck.config.from,
+    const html = generateApprovalEmailTemplate(data);
+    const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+    console.log('📧 Sending approval email via Resend:', {
       to: data.userEmail,
       subject,
-      html: generateApprovalEmailTemplate(data),
-      text: `${data.approverName} ${data.approvalAction} your material "${data.materialTitle}"\n\n${data.materialTitle} • ${data.subjectCode} • ${data.programmeId}\n\nView the material: ${data.materialLink}${data.rejectionReason ? `\n\nReason for ${data.approvalAction}: ${data.rejectionReason}` : ''}`,
-    };
-
-    console.log('📧 Sending approval email:', {
-      to: data.userEmail,
-      subject: mailOptions.subject,
-      from: mailOptions.from,
+      from,
       approvalAction: data.approvalAction
     });
 
-    const result = await transporter.sendMail(mailOptions);
+    const resend = getResendClient();
+    const { data: emailData, error } = await resend.emails.send({
+      from,
+      to: [data.userEmail],
+      subject,
+      html,
+      text: `${data.approverName} ${data.approvalAction} your material "${data.materialTitle}"\n\n${data.materialTitle} • ${data.subjectCode} • ${data.programmeId}\n\nView the material: ${data.materialLink}${data.rejectionReason ? `\n\nReason for ${data.approvalAction}: ${data.rejectionReason}` : ''}`,
+    });
 
-    console.log('✅ Approval email sent successfully:', {
+    if (error) {
+      console.error('❌ Resend email error:', error);
+      return {
+        success: false,
+        message: 'Failed to send approval email via Resend',
+        error: error.message
+      };
+    }
+
+    console.log('✅ Approval email sent successfully via Resend:', {
       to: data.userEmail,
-      subject: mailOptions.subject,
-      messageId: result.messageId,
-      response: result.response
+      subject,
+      emailId: emailData?.id
     });
 
     return {
       success: true,
       message: 'Approval email sent successfully',
-      messageId: result.messageId
+      messageId: emailData?.id
     };
   } catch (error) {
-    console.error('❌ Failed to send approval email:', {
+    console.error('❌ Failed to send approval email via Resend:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       to: data.userEmail
     });
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    let userFriendlyMessage = 'Failed to send approval email';
-
-    // Handle specific Gmail errors
-    if (errorMessage.includes('Username and Password not accepted')) {
-      userFriendlyMessage = 'Gmail authentication failed. Check your email and app password.';
-    } else if (errorMessage.includes('Please log in via your web browser')) {
-      userFriendlyMessage = 'Gmail requires enabling "Less secure app access" or using an app password.';
-    }
 
     return {
       success: false,
-      message: userFriendlyMessage,
+      message: 'Failed to send approval email',
       error: errorMessage
     };
   }
@@ -615,41 +601,51 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'verify-connection') {
-      try {
-        const configCheck = checkGmailConfiguration();
-        if (!configCheck.isConfigured) {
-          return NextResponse.json({
-            success: false,
-            message: 'Gmail configuration incomplete',
-            config: configCheck.config,
-            missingVars: configCheck.missingVars
-          });
-        }
+      const configCheck = checkResendConfiguration();
+      if (!configCheck.isConfigured) {
+        return NextResponse.json({
+          success: false,
+          message: 'Resend configuration incomplete',
+          config: configCheck.config,
+          missingVars: configCheck.missingVars
+        });
+      }
 
-        console.log('🔄 Verifying Gmail transporter connection...');
-        await transporter.verify();
-        console.log('✅ Gmail transporter connection verified');
+      // For Resend, we can test the API key by sending a test email or checking the API
+      try {
+        // Simple API key validation by checking if we can access the Resend API
+        const resend = getResendClient();
+        const { error } = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          to: ['test@example.com'],
+          subject: 'Connection Test',
+          html: '<p>Test email - please ignore</p>',
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
 
         return NextResponse.json({
           success: true,
-          message: 'Gmail transporter connection verified successfully',
+          message: 'Resend API connection verified successfully',
           config: configCheck.config
         });
       } catch (error) {
-        console.error('❌ Gmail transporter verification failed:', error);
+        console.error('❌ Resend API verification failed:', error);
         return NextResponse.json({
           success: false,
-          message: 'Gmail transporter verification failed',
+          message: 'Resend API verification failed',
           error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
 
     if (action === 'check-configuration') {
-      const configCheck = checkGmailConfiguration();
+      const configCheck = checkResendConfiguration();
       return NextResponse.json({
         success: configCheck.isConfigured,
-        message: configCheck.isConfigured ? 'Gmail configuration is complete' : 'Gmail configuration is incomplete',
+        message: configCheck.isConfigured ? 'Resend configuration is complete' : 'Resend configuration is incomplete',
         config: configCheck.config,
         missingVars: configCheck.missingVars
       });
