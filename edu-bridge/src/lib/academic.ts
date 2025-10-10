@@ -641,7 +641,7 @@ export async function rejectMaterial(materialId: string, adminId: string, reason
   }
 }
 
-// Get pending materials for admin approval
+// Get pending materials for lecturer approval
 export async function getPendingMaterials(): Promise<Material[]> {
   try {
     const querySnapshot = await getDocs(

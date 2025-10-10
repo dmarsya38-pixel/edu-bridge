@@ -92,11 +92,13 @@ export default function EmailDebugPanel() {
           addLog(`Error details: ${result.error}`);
         }
 
-        // Provide helpful guidance for Gmail errors
-        if (result.error?.includes('Username and Password not accepted')) {
-          addLog('💡 Solution: Check your Gmail credentials and enable "Less secure app access"');
-        } else if (result.error?.includes('Please log in via your web browser')) {
-          addLog('💡 Solution: Enable "Less secure app access" in your Google Account settings');
+        // Provide helpful guidance for Resend errors
+        if (result.error?.includes('API key is invalid')) {
+          addLog('💡 Solution: Check your Resend API key and ensure it\'s valid');
+        } else if (result.error?.includes('Domain not verified')) {
+          addLog('💡 Solution: Verify your domain in Resend dashboard or use onboarding@resend.dev');
+        } else if (result.error?.includes('missing_api_key')) {
+          addLog('💡 Solution: Add your Resend API key to environment variables');
         }
       }
     } catch (error) {
@@ -193,13 +195,13 @@ export default function EmailDebugPanel() {
       </div>
 
       <div className="mt-4 text-sm text-gray-600">
-        <p>💡 <strong>Gmail SMTP Setup:</strong></p>
+        <p>💡 <strong>Resend.com Setup:</strong></p>
         <ul className="list-disc list-inside mt-1 space-y-1">
-          <li>Make sure to enable &quot;Less secure app access&quot; in your Google Account</li>
-          <li>Or use an App Password if you have 2-Factor Authentication enabled</li>
+          <li>Make sure your Resend API key is valid and active</li>
+          <li>Verify your domain in Resend dashboard or use onboarding@resend.dev for testing</li>
           <li>Check both this panel &amp; your server terminal for detailed logs</li>
-          <li>Make sure all Gmail environment variables are set correctly</li>
-          <li>Test emails may take a few minutes to arrive</li>
+          <li>Make sure all Resend environment variables are set correctly</li>
+          <li>Test emails are usually delivered instantly</li>
           <li>Check spam/junk folders if you don&apos;t see the test email</li>
         </ul>
       </div>
