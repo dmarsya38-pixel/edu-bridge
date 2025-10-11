@@ -20,7 +20,7 @@ export default function AuthPage() {
     // Redirect based on user role
     switch (user.role) {
       case 'admin':
-        router.push('/admin');
+        router.push('/dashboard'); // Admins now go to dashboard instead of admin panel
         break;
       case 'lecturer':
         router.push('/dashboard'); // Lecturers use the same dashboard for now
