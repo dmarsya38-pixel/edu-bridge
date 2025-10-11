@@ -138,9 +138,9 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
             manage user accounts and roles.
           </p>
           <div className="space-y-2">
-            <button className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+            <a href="/admin/users" className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors inline-block text-center">
               Manage All Users
-            </button>
+            </a>
           </div>
         </div>
 

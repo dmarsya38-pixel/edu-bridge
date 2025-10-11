@@ -237,6 +237,35 @@ export function hasAdminPermissions(user: User | null): boolean {
 }
 
 /**
+ * Promote a lecturer to admin role
+ */
+export async function promoteLecturerToAdmin(
+  lecturerId: string,
+  adminId: string,
+  adminName: string
+): Promise<AdminResponse> {
+  try {
+    const userRef = doc(getDb(), 'users', lecturerId);
+
+    await updateDoc(userRef, {
+      role: 'admin',
+      verificationStatus: 'approved',
+      approvedBy: adminId,
+      approverName: adminName,
+      approvalDate: serverTimestamp()
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error promoting lecturer to admin:', error);
+    return {
+      success: false,
+      error: 'Failed to promote lecturer to admin. Please try again.'
+    };
+  }
+}
+
+/**
  * Create the first admin user (for system setup)
  */
 export async function createFirstAdmin(
@@ -245,7 +274,7 @@ export async function createFirstAdmin(
 ): Promise<AdminResponse> {
   try {
     const userRef = doc(getDb(), 'users', userId);
-    
+
     await updateDoc(userRef, {
       ...userData,
       role: 'admin',
@@ -259,9 +288,9 @@ export async function createFirstAdmin(
     return { success: true };
   } catch (error) {
     console.error('Error creating first admin:', error);
-    return { 
-      success: false, 
-      error: 'Failed to create admin user. Please try again.' 
+    return {
+      success: false,
+      error: 'Failed to create admin user. Please try again.'
     };
   }
 }

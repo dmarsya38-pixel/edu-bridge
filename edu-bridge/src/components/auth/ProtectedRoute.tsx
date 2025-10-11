@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/types/user';
@@ -12,14 +12,21 @@ interface ProtectedRouteProps {
   fallbackPath?: string;
 }
 
-export function ProtectedRoute({ 
-  children, 
+export function ProtectedRoute({
+  children,
   allowedRoles = ['student', 'lecturer', 'admin'],
   requireVerification = false,
   fallbackPath = '/auth'
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // Handle redirect when user is not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push(fallbackPath);
+    }
+  }, [user, loading, router, fallbackPath]);
 
   // Show loading state while checking auth
   if (loading) {
@@ -30,9 +37,8 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect if not authenticated
+  // Return null while waiting for redirect
   if (!user) {
-    router.push(fallbackPath);
     return null;
   }
 
