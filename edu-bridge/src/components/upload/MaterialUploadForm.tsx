@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { uploadMaterialFile, formatFileSize, getFileTypeIcon, validateFile } from '@/lib/storage';
+import { uploadMaterialFile, formatFileSize, getFileTypeIcon, validateFileSync } from '@/lib/storage';
 import { createMaterial } from '@/lib/academic';
 import { getProgrammes, getSubjectsBySemester } from '@/lib/academic';
 import type { 
@@ -29,6 +29,7 @@ export function MaterialUploadForm({
   
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [allowedFileTypes, setAllowedFileTypes] = useState<string[]>([]);
   const [formData, setFormData] = useState<MaterialMetadata>({
     title: '',
     description: '',
@@ -45,9 +46,10 @@ export function MaterialUploadForm({
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // Load programmes on mount
+  // Load programmes and system settings on mount
   React.useEffect(() => {
     loadProgrammes();
+    loadSystemSettings();
   }, []);
 
   // Load subjects when programme OR semester changes
@@ -66,6 +68,69 @@ export function MaterialUploadForm({
       setProgrammes(data);
     } catch (error) {
       console.error('Error loading programmes:', error);
+    }
+  };
+
+  const loadSystemSettings = async () => {
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { getFileUploadSettings } = await import('@/lib/academic');
+      const settings = await getFileUploadSettings();
+
+      // Debug: Log what we actually received
+      console.log('🔍 Raw system settings received:', settings);
+      console.log('🔍 Settings type:', typeof settings);
+      console.log('🔍 Settings keys:', settings ? Object.keys(settings) : 'null/undefined');
+
+      // Validate settings structure
+      if (!settings) {
+        console.warn('System settings is null/undefined, using defaults');
+        throw new Error('System settings is null/undefined');
+      }
+
+      if (!settings.allowedFileTypes) {
+        console.warn('System settings missing allowedFileTypes, using defaults');
+        console.log('Available properties:', Object.keys(settings));
+        throw new Error('allowedFileTypes not found in system settings');
+      }
+
+      if (!Array.isArray(settings.allowedFileTypes)) {
+        console.warn('allowedFileTypes is not an array:', typeof settings.allowedFileTypes, settings.allowedFileTypes);
+        throw new Error('allowedFileTypes is not an array');
+      }
+
+      console.log('✅ Valid system settings loaded:', settings);
+
+      // Generate file accept string for input
+      const fileExtensions = settings.allowedFileTypes.map(mime => {
+        if (mime.includes('pdf')) return '.pdf';
+        if (mime.includes('word')) return '.doc,.docx';
+        if (mime.includes('powerpoint')) return '.ppt,.pptx';
+        return '';
+      }).filter(Boolean).join(',');
+
+      setAllowedFileTypes(settings.allowedFileTypes);
+
+      // Update the accept attribute dynamically if we have the ref
+      if (fileInputRef.current) {
+        fileInputRef.current.setAttribute('accept', fileExtensions);
+      }
+    } catch (error) {
+      console.error('Error loading system settings:', error);
+      // Fallback to default file types
+      const defaultFileTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      ];
+      setAllowedFileTypes(defaultFileTypes);
+
+      // Set default accept attribute
+      if (fileInputRef.current) {
+        fileInputRef.current.setAttribute('accept', '.pdf,.doc,.docx,.ppt,.pptx');
+      }
     }
   };
 
@@ -115,31 +180,50 @@ export function MaterialUploadForm({
     }
   };
 
-  const handleFileSelect = (file: File) => {
-    const validation = validateFile(file);
-    
-    if (!validation.isValid) {
-      setErrors(prev => ({ ...prev, file: validation.error!.message }));
-      return;
-    }
+  const handleFileSelect = async (file: File) => {
+    // Show loading state while validating
+    setErrors(prev => ({ ...prev, file: 'Validating file...' }));
 
-    setSelectedFile(file);
-    setErrors(prev => ({ ...prev, file: '' }));
+    try {
+      // Use async validation with system settings
+      const validation = await import('@/lib/storage').then(({ validateFile }) =>
+        validateFile(file, 'material')
+      );
 
-    // Auto-fill title if empty
-    if (!formData.title) {
-      const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-      setFormData(prev => ({
-        ...prev,
-        title: fileName
-      }));
+      if (!validation.isValid) {
+        setErrors(prev => ({ ...prev, file: validation.error!.message }));
+        // Clear the file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      setSelectedFile(file);
+      setErrors(prev => ({ ...prev, file: '' }));
+
+      // Auto-fill title if empty
+      if (!formData.title) {
+        const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+        setFormData(prev => ({
+          ...prev,
+          title: fileName
+        }));
+      }
+    } catch (error) {
+      console.error('File validation failed:', error);
+      setErrors(prev => ({ ...prev, file: 'File validation failed. Please try again.' }));
+      // Clear the file input - do NOT allow file through if validation fails
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFileSelect(file);
+      await handleFileSelect(file);
     }
   };
 
@@ -153,13 +237,13 @@ export function MaterialUploadForm({
     setIsDragOver(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file) {
-      handleFileSelect(file);
+      await handleFileSelect(file);
     }
   };
 
@@ -357,7 +441,15 @@ export function MaterialUploadForm({
                     </button>
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                    PDF, DOC, DOCX, PPT, PPTX files up to 10MB
+                    {allowedFileTypes.length > 0
+                      ? `${allowedFileTypes.map(mime => {
+                          if (mime.includes('pdf')) return 'PDF';
+                          if (mime.includes('word')) return 'DOC/DOCX';
+                          if (mime.includes('powerpoint')) return 'PPT/PPTX';
+                          return mime.split('/')[1]?.toUpperCase() || mime;
+                        }).join(', ')} files up to 10MB`
+                      : 'Files up to 10MB'
+                    }
                   </p>
                 </div>
               </div>
@@ -368,7 +460,6 @@ export function MaterialUploadForm({
             ref={fileInputRef}
             type="file"
             onChange={handleFileInputChange}
-            accept=".pdf,.doc,.docx,.ppt,.pptx"
             className="hidden"
           />
           

@@ -135,7 +135,7 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">User Management</h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-            Approve new registrations and manage user accounts and roles.
+            manage user accounts and roles.
           </p>
           <div className="space-y-2">
             <button className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
@@ -187,9 +187,9 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
             Configure system settings, notifications, and platform preferences.
           </p>
-          <button className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          <a href="/admin/settings" className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors inline-block text-center">
             System Settings
-          </button>
+          </a>
         </div>
       </div>
     </>

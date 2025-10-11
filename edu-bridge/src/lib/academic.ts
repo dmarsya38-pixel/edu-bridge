@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  setDoc,
     addDoc,
   updateDoc,
   deleteDoc,
@@ -11,6 +12,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  Timestamp,
     writeBatch
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -38,8 +40,12 @@ import type {
   CommentWithHighlight,
   MaterialWithHighlight,
   HighlightedFields,
-  SubjectSearchResult
+  SubjectSearchResult,
+  SystemSettings,
+  SystemSettingsUpdate
 } from '@/types/academic';
+import { DEFAULT_SYSTEM_SETTINGS } from '@/types/academic';
+import { createSafeTimestamp } from './timestamp-utils';
 import type { User } from '@/types/user';
 
 // Global cache for programmes (rarely change)
@@ -1770,4 +1776,267 @@ export async function getSearchSuggestions(
     console.error('Error getting search suggestions:', error);
     return [];
   }
+}
+
+// =====================
+// SYSTEM SETTINGS FUNCTIONS
+// =====================
+
+// Cache for system settings (per session)
+let systemSettingsCache: SystemSettings | null = null;
+let systemSettingsCacheTime = 0;
+const SYSTEM_SETTINGS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Get system settings from Firestore with caching
+ */
+export async function getSystemSettings(): Promise<SystemSettings> {
+  const now = Date.now();
+
+  // Check cache first
+  if (systemSettingsCache && (now - systemSettingsCacheTime < SYSTEM_SETTINGS_CACHE_DURATION)) {
+    console.log('💰 CACHE HIT: Using cached system settings');
+    return systemSettingsCache;
+  }
+
+  try {
+    console.log('🔍 Firestore query: Loading system settings');
+    const settingsDoc = await getDoc(doc(getDb(), 'system_settings', 'main'));
+
+    if (settingsDoc.exists()) {
+      const settingsData = settingsDoc.data();
+      const settings = {
+        ...settingsData,
+        settingsId: settingsDoc.id
+      } as SystemSettings;
+
+      // Validate that settings have required structure
+      if (!settings.fileUpload || !settings.fileUpload.allowedFileTypes) {
+        console.log('⚠️ System settings missing fileUpload.allowedFileTypes, attempting to fix...');
+
+        // Create merged settings with defaults
+        const mergedSettings = {
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...settingsData,
+          settingsId: settingsDoc.id,
+          updatedAt: settingsData.updatedAt || Timestamp.now(),
+          updatedBy: settingsData.updatedBy || 'system'
+        };
+
+        // Try to update the database (will work for admins, fail gracefully for students)
+        try {
+          await updateDoc(doc(getDb(), 'system_settings', 'main'), {
+            fileUpload: DEFAULT_SYSTEM_SETTINGS.fileUpload,
+            updatedAt: serverTimestamp(),
+            updatedBy: 'system-auto-fix'
+          });
+          console.log('✅ System settings database updated with complete structure');
+        } catch (updateError) {
+          console.log('ℹ️ Could not update database (likely due to permissions), using session defaults');
+        }
+
+        console.log('✅ Using merged settings with defaults');
+
+        // Cache the merged settings
+        systemSettingsCache = mergedSettings as SystemSettings;
+        systemSettingsCacheTime = now;
+        return mergedSettings as SystemSettings;
+      }
+
+      // Cache the settings
+      systemSettingsCache = settings;
+      systemSettingsCacheTime = now;
+
+      console.log('💾 CACHED: System settings loaded and cached');
+      return settings;
+    } else {
+      // Initialize with default settings if none exist
+      console.log('📝 No settings found, creating default settings');
+      return await initializeSystemSettings();
+    }
+  } catch (error) {
+    console.error('Error fetching system settings:', error);
+    // Return default settings as fallback
+    const fallbackSettings: SystemSettings = {
+      ...DEFAULT_SYSTEM_SETTINGS,
+      settingsId: 'fallback',
+      updatedAt: createSafeTimestamp(new Date()),
+      updatedBy: 'system'
+    };
+    return fallbackSettings;
+  }
+}
+
+/**
+ * Initialize system settings with defaults
+ */
+async function initializeSystemSettings(): Promise<SystemSettings> {
+  try {
+    const settingsRef = doc(getDb(), 'system_settings', 'main');
+    const defaultSettings = {
+      ...DEFAULT_SYSTEM_SETTINGS,
+      updatedAt: serverTimestamp(),
+      updatedBy: 'system'
+    };
+
+    await setDoc(settingsRef, defaultSettings);
+    const settings = {
+      ...defaultSettings,
+      settingsId: 'main'
+    } as SystemSettings;
+
+    // Cache the new settings
+    systemSettingsCache = settings;
+    systemSettingsCacheTime = Date.now();
+
+    console.log('✅ Default system settings created');
+    return settings;
+  } catch (error) {
+    console.error('Error initializing system settings:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update system settings
+ */
+export async function updateSystemSettings(
+  updates: SystemSettingsUpdate,
+  adminId: string
+): Promise<SystemSettings> {
+  try {
+    const settingsRef = doc(getDb(), 'system_settings', 'main');
+
+    const updateData = {
+      ...updates,
+      updatedAt: serverTimestamp(),
+      updatedBy: adminId
+    };
+
+    await updateDoc(settingsRef, updateData);
+
+    // Get updated settings
+    const updatedDoc = await getDoc(settingsRef);
+    if (!updatedDoc.exists()) {
+      throw new Error('Settings document not found after update');
+    }
+
+    const updatedSettings = {
+      ...updatedDoc.data(),
+      settingsId: updatedDoc.id
+    } as SystemSettings;
+
+    // Update cache
+    systemSettingsCache = updatedSettings;
+    systemSettingsCacheTime = Date.now();
+
+    // Log admin action
+    try {
+      await logAdminAction({
+        adminId,
+        action: 'update_system_settings',
+        targetId: 'main',
+        targetType: 'system_settings',
+        details: { updates: Object.keys(updates) }
+      });
+    } catch (logError) {
+      console.warn('⚠️ Failed to log admin action:', logError);
+    }
+
+    console.log('✅ System settings updated successfully');
+    return updatedSettings;
+  } catch (error) {
+    console.error('Error updating system settings:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear system settings cache (useful after admin updates)
+ */
+export function clearSystemSettingsCache(): void {
+  systemSettingsCache = null;
+  systemSettingsCacheTime = 0;
+  console.log('🗑️ System settings cache cleared');
+}
+
+/**
+ * Get specific file upload settings
+ */
+export async function getFileUploadSettings(): Promise<{
+  maxFileSize: number;
+  allowedFileTypes: string[];
+  maxFileNameLength: number;
+}> {
+  const settings = await getSystemSettings();
+
+  // Validate that fileUpload settings exist
+  if (!settings.fileUpload) {
+    console.warn('fileUpload settings not found, returning defaults');
+    return DEFAULT_SYSTEM_SETTINGS.fileUpload;
+  }
+
+  // Validate that allowedFileTypes exists
+  if (!settings.fileUpload.allowedFileTypes) {
+    console.warn('allowedFileTypes not found in fileUpload settings, returning defaults');
+    return {
+      ...settings.fileUpload,
+      allowedFileTypes: DEFAULT_SYSTEM_SETTINGS.fileUpload.allowedFileTypes
+    };
+  }
+
+  return settings.fileUpload;
+}
+
+/**
+ * Get specific comment file settings
+ */
+export async function getCommentFileSettings(): Promise<{
+  maxFileSize: number;
+  maxFiles: number;
+  allowedFileTypes: string[];
+}> {
+  const settings = await getSystemSettings();
+  return settings.commentFiles;
+}
+
+/**
+ * Get user restriction settings
+ */
+export async function getRestrictionSettings(): Promise<{
+  studentsCanOnlyUploadNotes: boolean;
+  studentsCanOnlyUploadToOwnProgramme: boolean;
+  lecturerAutoApproval: boolean;
+}> {
+  const settings = await getSystemSettings();
+  return settings.restrictions;
+}
+
+/**
+ * Get platform settings
+ */
+export async function getPlatformSettings(): Promise<{
+  platformName: string;
+  adminEmail: string;
+  maintenanceMode: boolean;
+  enableFileDownloads: boolean;
+  enableComments: boolean;
+  enableNotifications: boolean;
+}> {
+  const settings = await getSystemSettings();
+  return settings.platform;
+}
+
+/**
+ * Get email notification settings
+ */
+export async function getEmailSettings(): Promise<{
+  enabled: boolean;
+  requireEmailVerification: boolean;
+  enableUploadNotifications: boolean;
+  enableCommentNotifications: boolean;
+  enableApprovalNotifications: boolean;
+}> {
+  const settings = await getSystemSettings();
+  return settings.email;
 }

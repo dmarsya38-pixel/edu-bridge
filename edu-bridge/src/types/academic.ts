@@ -333,3 +333,131 @@ export interface CommentWithHighlight extends Comment {
   subjectCode?: string;
   programmeId?: string;
 }
+
+// System Settings Types
+export interface SystemSettings {
+  settingsId: string;
+
+  // File Upload Settings
+  fileUpload: {
+    maxFileSize: number;           // in bytes
+    allowedFileTypes: string[];    // MIME types
+    maxFileNameLength: number;
+  };
+
+  // Comment File Settings
+  commentFiles: {
+    maxFileSize: number;           // in bytes
+    maxFiles: number;
+    allowedFileTypes: string[];    // MIME types
+  };
+
+  // User Restrictions
+  restrictions: {
+    studentsCanOnlyUploadNotes: boolean;
+    studentsCanOnlyUploadToOwnProgramme: boolean;
+    lecturerAutoApproval: boolean;
+  };
+
+  // Platform Settings
+  platform: {
+    platformName: string;
+    adminEmail: string;
+    maintenanceMode: boolean;
+    enableFileDownloads: boolean;
+    enableComments: boolean;
+    enableNotifications: boolean;
+  };
+
+  // Email Settings
+  email: {
+    enabled: boolean;
+    requireEmailVerification: boolean;
+    enableUploadNotifications: boolean;
+    enableCommentNotifications: boolean;
+    enableApprovalNotifications: boolean;
+  };
+
+  updatedAt: Timestamp;
+  updatedBy: string;               // Admin ID who made changes
+}
+
+export interface SystemSettingsUpdate {
+  fileUpload?: {
+    maxFileSize?: number;
+    allowedFileTypes?: string[];
+    maxFileNameLength?: number;
+  };
+  commentFiles?: {
+    maxFileSize?: number;
+    maxFiles?: number;
+    allowedFileTypes?: string[];
+  };
+  restrictions?: {
+    studentsCanOnlyUploadNotes?: boolean;
+    studentsCanOnlyUploadToOwnProgramme?: boolean;
+    lecturerAutoApproval?: boolean;
+  };
+  platform?: {
+    platformName?: string;
+    adminEmail?: string;
+    maintenanceMode?: boolean;
+    enableFileDownloads?: boolean;
+    enableComments?: boolean;
+    enableNotifications?: boolean;
+  };
+  email?: {
+    enabled?: boolean;
+    requireEmailVerification?: boolean;
+    enableUploadNotifications?: boolean;
+    enableCommentNotifications?: boolean;
+    enableApprovalNotifications?: boolean;
+  };
+}
+
+// Default settings for initialization
+export const DEFAULT_SYSTEM_SETTINGS: Omit<SystemSettings, 'settingsId' | 'updatedAt' | 'updatedBy'> = {
+  fileUpload: {
+    maxFileSize: 10 * 1024 * 1024, // 10MB
+    allowedFileTypes: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ],
+    maxFileNameLength: 100
+  },
+  commentFiles: {
+    maxFileSize: 5 * 1024 * 1024, // 5MB
+    maxFiles: 3,
+    allowedFileTypes: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/jpg',
+      'image/png'
+    ]
+  },
+  restrictions: {
+    studentsCanOnlyUploadNotes: true,
+    studentsCanOnlyUploadToOwnProgramme: true,
+    lecturerAutoApproval: true
+  },
+  platform: {
+    platformName: 'EduBridge',
+    adminEmail: 'admin@edubridge.edu',
+    maintenanceMode: false,
+    enableFileDownloads: true,
+    enableComments: true,
+    enableNotifications: true
+  },
+  email: {
+    enabled: true,
+    requireEmailVerification: false,
+    enableUploadNotifications: true,
+    enableCommentNotifications: true,
+    enableApprovalNotifications: true
+  }
+};

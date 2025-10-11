@@ -6,7 +6,7 @@ import {
   UploadTaskSnapshot 
 } from 'firebase/storage';
 import { getStorageInstance } from './firebase';
-import { COMMENT_ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/types/academic';
+import { COMMENT_ALLOWED_FILE_TYPES, COMMENT_MAX_FILE_SIZE, MAX_FILE_SIZE } from '@/types/academic';
 
 export interface FileUploadProgress {
   bytesTransferred: number;
@@ -33,9 +33,9 @@ export interface FileValidationResult {
 }
 
 /**
- * Validate file before upload
+ * Validate file before upload using system settings
  */
-export function validateFile(file: File): FileValidationResult {
+export async function validateFile(file: File, type: 'material' | 'comment' = 'material'): Promise<FileValidationResult> {
   if (!file) {
     return {
       isValid: false,
@@ -46,20 +46,146 @@ export function validateFile(file: File): FileValidationResult {
     };
   }
 
+  try {
+    // Import system settings dynamically to avoid circular dependencies
+    const { getFileUploadSettings, getCommentFileSettings } = await import('./academic');
+
+    let settings: { maxFileSize: number; allowedFileTypes: string[]; maxFileNameLength?: number };
+
+    if (type === 'comment') {
+      const commentSettings = await getCommentFileSettings();
+      settings = {
+        maxFileSize: commentSettings.maxFileSize,
+        allowedFileTypes: commentSettings.allowedFileTypes,
+        maxFileNameLength: 100 // Default for comments
+      };
+    } else {
+      settings = await getFileUploadSettings();
+    }
+
+    // Check file type
+    if (!settings.allowedFileTypes.includes(file.type)) {
+      const fileExtensions = settings.allowedFileTypes.map(mime => {
+        const ext = mime.split('/').pop()?.toUpperCase();
+        if (mime.includes('pdf')) return 'PDF';
+        if (mime.includes('word')) return 'DOC/DOCX';
+        if (mime.includes('powerpoint')) return 'PPT/PPTX';
+        if (mime.includes('jpeg')) return 'JPEG';
+        if (mime.includes('png')) return 'PNG';
+        return ext || mime;
+      }).join(', ');
+
+      return {
+        isValid: false,
+        error: {
+          code: 'invalid-type',
+          message: `File type not allowed. Only ${fileExtensions} files are supported.`
+        }
+      };
+    }
+
+    // Check file size
+    if (file.size > settings.maxFileSize) {
+      const maxSizeMB = settings.maxFileSize / (1024 * 1024);
+      const currentSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      return {
+        isValid: false,
+        error: {
+          code: 'file-too-large',
+          message: `File size must be less than ${maxSizeMB}MB. Current size: ${currentSizeMB}MB`
+        }
+      };
+    }
+
+    // Check filename
+    const maxFileNameLength = settings.maxFileNameLength || 100;
+    if (file.name.length > maxFileNameLength) {
+      return {
+        isValid: false,
+        error: {
+          code: 'invalid-name',
+          message: `File name is too long (maximum ${maxFileNameLength} characters)`
+        }
+      };
+    }
+
+    return { isValid: true };
+  } catch (error) {
+    console.error('Error validating file with system settings:', error);
+
+    // Fallback to hardcoded defaults if system settings fail
+    const defaultAllowedTypes: string[] = type === 'comment'
+      ? [...COMMENT_ALLOWED_FILE_TYPES]
+      : ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+
+    const defaultMaxSize = type === 'comment' ? COMMENT_MAX_FILE_SIZE : MAX_FILE_SIZE;
+
+    // Check file type
+    if (!defaultAllowedTypes.includes(file.type)) {
+      return {
+        isValid: false,
+        error: {
+          code: 'invalid-type',
+          message: 'File type not allowed. Please contact administrator for current file type restrictions.'
+        }
+      };
+    }
+
+    // Check file size
+    if (file.size > defaultMaxSize) {
+      const maxSizeMB = defaultMaxSize / (1024 * 1024);
+      return {
+        isValid: false,
+        error: {
+          code: 'file-too-large',
+          message: `File size must be less than ${maxSizeMB}MB.`
+        }
+      };
+    }
+
+    return { isValid: true };
+  }
+}
+
+/**
+ * Synchronous validateFile for backward compatibility (uses default settings)
+ */
+export function validateFileSync(file: File, type: 'material' | 'comment' = 'material'): FileValidationResult {
+  if (!file) {
+    return {
+      isValid: false,
+      error: {
+        code: 'no-file',
+        message: 'No file selected'
+      }
+    };
+  }
+
+  // Use hardcoded defaults for synchronous validation
+  const defaultAllowedTypes: string[] = type === 'comment'
+    ? [...COMMENT_ALLOWED_FILE_TYPES]
+    : ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+       'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+
+  const defaultMaxSize = type === 'comment' ? COMMENT_MAX_FILE_SIZE : MAX_FILE_SIZE;
+
   // Check file type
-  if (!COMMENT_ALLOWED_FILE_TYPES.includes(file.type as typeof COMMENT_ALLOWED_FILE_TYPES[number])) {
+  if (!defaultAllowedTypes.includes(file.type)) {
     return {
       isValid: false,
       error: {
         code: 'invalid-type',
-        message: 'File type not allowed. Only PDF, DOC, DOCX, PPT, PPTX, JPG, JPEG, and PNG files are supported.'
+        message: type === 'comment'
+          ? 'File type not allowed. Only PDF, DOC, DOCX, JPG, JPEG, and PNG files are supported.'
+          : 'File type not allowed. Only PDF, DOC, DOCX, PPT, and PPTX files are supported.'
       }
     };
   }
 
   // Check file size
-  if (file.size > MAX_FILE_SIZE) {
-    const maxSizeMB = MAX_FILE_SIZE / (1024 * 1024);
+  if (file.size > defaultMaxSize) {
+    const maxSizeMB = defaultMaxSize / (1024 * 1024);
     return {
       isValid: false,
       error: {
@@ -110,9 +236,10 @@ export function generateStoragePath(
 export function uploadFile(
   file: File,
   storagePath: string,
-  onProgress?: (progress: FileUploadProgress) => void
+  onProgress?: (progress: FileUploadProgress) => void,
+  fileType: 'material' | 'comment' = 'material'
 ): Promise<FileUploadResult> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     // Debug: Check authentication
     import('./firebase').then(({ getAuthInstance }) => {
       console.log('🔐 Upload attempt - User authenticated:', !!getAuthInstance().currentUser);
@@ -120,10 +247,16 @@ export function uploadFile(
       console.log('📁 File details:', { name: file.name, type: file.type, size: file.size });
     });
 
-    // Validate file first
-    const validation = validateFile(file);
-    if (!validation.isValid) {
-      reject(new Error(validation.error!.message));
+    // Validate file first using async validation
+    try {
+      const validation = await validateFile(file, fileType);
+      if (!validation.isValid) {
+        reject(new Error(validation.error!.message));
+        return;
+      }
+    } catch (validationError) {
+      console.error('File validation failed during upload:', validationError);
+      reject(new Error('File validation failed. Please try again.'));
       return;
     }
 
