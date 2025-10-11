@@ -201,12 +201,12 @@ export default function RegistrationForm({ onSuccess, onLoginRedirect, onSwitchT
     <div className="max-w-md mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-[100px] h-[100px] mx-auto mb-4 flex items-center justify-center">
+        <div className="w-[150px] h-[150px] mx-auto mb-4 flex items-center justify-center">
           <Image
             src="/logo.png"
             alt="EduBridge+ Logo"
-            width={100}
-            height={100}
+            width={150}
+            height={150}
             className="object-contain"
             priority
           />

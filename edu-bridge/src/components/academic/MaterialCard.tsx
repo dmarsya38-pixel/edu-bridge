@@ -203,7 +203,7 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
               </span>
             )}
             {showUploader && (
-              <span>oleh {material.uploaderRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'} | {material.uploaderName}</span>
+              <span>by {material.uploaderRole === 'lecturer' ? 'Lecturer' : 'Student'} | {material.uploaderName}</span>
             )}
           </div>
           

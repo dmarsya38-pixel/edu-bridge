@@ -139,8 +139,8 @@ export default function LoginForm({ onSuccess, onRegisterRedirect }: LoginFormPr
           <Image
             src="/logo.png"
             alt="EduBridge+ Logo"
-            width={100}
-            height={100}
+            width={150}
+            height={150}
             className="object-contain"
             priority
           />

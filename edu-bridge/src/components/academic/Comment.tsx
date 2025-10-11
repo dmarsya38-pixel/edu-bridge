@@ -124,7 +124,7 @@ export function Comment({ comment, currentUserId, onDelete, materialUploaderId }
                 </span>
               )}
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getAuthorRoleColor(comment.authorRole)}`}>
-                {comment.authorRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'}
+                {comment.authorRole === 'lecturer' ? 'Lecturer' : 'Student'}
               </span>
             </div>
             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -162,7 +162,7 @@ export function Comment({ comment, currentUserId, onDelete, materialUploaderId }
       {comment.attachments && comment.attachments.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Lampiran ({comment.attachments.length})
+            Attachments ({comment.attachments.length})
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {comment.attachments.map((attachment, index) => (

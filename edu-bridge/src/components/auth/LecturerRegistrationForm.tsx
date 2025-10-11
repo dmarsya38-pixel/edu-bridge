@@ -290,12 +290,12 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <div className="w-[100px] h-[100px] mx-auto mb-4 flex items-center justify-center">
+        <div className="w-[150px] h-[150px] mx-auto mb-4 flex items-center justify-center">
           <Image
             src="/logo.png"
             alt="EduBridge+ Logo"
-            width={100}
-            height={100}
+            width={150}
+            height={150}
             className="object-contain"
             priority
           />
