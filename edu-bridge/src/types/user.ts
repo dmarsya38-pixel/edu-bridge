@@ -41,7 +41,7 @@ export interface UserProfile {
   
   // Auto-extracted from Matric ID
   politeknik: string;        // "Politeknik Nilai"
-  program: string;           // "DBS", "DAC", "DEC"
+  program: string;           // "DBS", "DIB", "DIF", "DLS", "DRM", "DAC", "DEC"
   programName: string;       // "Diploma in Business Studies"
   entryYear: string;         // "2023"
   session: string;           // "F1", "F2"
@@ -72,6 +72,7 @@ export interface UserProfile {
   teachingSubjects?: string[];    // Subject codes lecturer teaches
   programmes?: string[];          // Programmes lecturer can teach
   department?: string;            // Department lecturer belongs to
+  employeeId?: string;            // Employee ID for lecturers (e.g., "L001234")
   
   // Settings
   preferences: {
@@ -94,11 +95,27 @@ export interface User {
   avatar?: string;
   displayName?: string;
   isVerified?: boolean;
-  
+
+  // Profile fields
+  profile?: {
+    nickname?: string;
+    bio?: string;
+    interests?: string[];
+    displayName?: string;
+  };
+
+  // Preferences
+  preferences?: {
+    theme?: 'light' | 'dark' | 'system';
+    notifications?: boolean;
+    emailUpdates?: boolean;
+  };
+
   // Lecturer-specific fields
   teachingSubjects?: string[];    // Subject codes lecturer teaches ["DPP20023", "DBS2024"]
-  programmes?: string[];          // Programmes lecturer can teach ["DBS", "DRM"] 
+  programmes?: string[];          // Programmes lecturer can teach ["DBS", "DRM"]
   department?: string;            // "Commerce"
+  employeeId?: string;            // Employee ID for lecturers (e.g., "L001234")
 }
 
 // Auth context state

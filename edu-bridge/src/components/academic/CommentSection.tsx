@@ -11,9 +11,10 @@ interface CommentSectionProps {
   materialId: string;
   isVisible: boolean;
   materialUploaderId?: string;
+  commentId?: string;
 }
 
-export function CommentSection({ materialId, isVisible, materialUploaderId }: CommentSectionProps) {
+export function CommentSection({ materialId, isVisible, materialUploaderId, commentId = '' }: CommentSectionProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -32,7 +33,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       setComments(fetchedComments);
     } catch (err) {
       console.error('Error loading comments:', err);
-      setError('Gagal memuatkan komen. Sila cuba lagi.');
+      setError('Failed to load comments. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -43,6 +44,29 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       loadComments();
     }
   }, [loadComments, isVisible]);
+
+  // Scroll to specific comment if commentId is provided
+  React.useEffect(() => {
+    if (isVisible && commentId && comments.length > 0) {
+      const timer = setTimeout(() => {
+        const commentElement = document.getElementById(`comment-${commentId}`);
+        if (commentElement) {
+          commentElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+
+          // Highlight the comment briefly
+          commentElement.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          setTimeout(() => {
+            commentElement.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          }, 3000);
+        }
+      }, 100); // Small delay to ensure comments are rendered
+
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, commentId, comments]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -103,7 +127,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       
     } catch (err) {
       console.error('Error adding comment:', err);
-      setError('Gagal menghantar komen. Sila cuba lagi.');
+      setError('Failed to send comment. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +139,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       await loadComments(); // Reload comments
     } catch (err) {
       console.error('Error deleting comment:', err);
-      setError('Gagal memadam komen. Sila cuba lagi.');
+      setError('Failed to delete comment. Please try again.');
     }
   };
 
@@ -135,14 +159,14 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       {user && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Tambah Komen
+            Add Comment
           </h3>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Kongsi pemikiran anda atau tanya soalan tentang bahan ini..."
+              placeholder="Share your thoughts or ask questions about this material..."
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={3}
               disabled={isSubmitting}
@@ -152,10 +176,10 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Lampiran Fail (Opsional)
+                  File Attachments (Optional)
                 </label>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {selectedFiles.length}/{COMMENT_MAX_FILES} files • Max 5MB setiap satu
+                  {selectedFiles.length}/{COMMENT_MAX_FILES} files • Max 5MB each
                 </span>
               </div>
 
@@ -179,7 +203,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Pilih fail atau seret ke sini
+                  Choose file or drag here
                 </span>
               </label>
 
@@ -227,10 +251,10 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
                 {isSubmitting ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Menghantar...</span>
+                    <span>Sending...</span>
                   </div>
                 ) : (
-                  'Hantar Komen'
+                  'Send Comment'
                 )}
               </button>
             </div>
@@ -248,7 +272,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Komen ({comments.length})
+            Comments ({comments.length})
           </h3>
         </div>
 
@@ -256,7 +280,7 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
           <div className="flex items-center justify-center py-8">
             <div className="flex items-center space-x-3">
               <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-gray-600 dark:text-gray-400">Memuatkan komen...</span>
+              <span className="text-gray-600 dark:text-gray-400">Loading comments...</span>
             </div>
           </div>
         ) : comments.length === 0 ? (
@@ -267,10 +291,10 @@ export function CommentSection({ materialId, isVisible, materialUploaderId }: Co
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Tiada Komen Lagi
+              No Comments Yet
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              Jadilah yang pertama untuk komen pada bahan ini.
+              Be the first to comment on this material.
             </p>
           </div>
         ) : (

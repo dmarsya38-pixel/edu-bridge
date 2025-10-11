@@ -115,7 +115,7 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
                 <span>•</span>
                 <span>{formatUploadDate(material.uploadDate)}</span>
                 <span>•</span>
-                <span>{material.uploaderRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'}</span>
+                <span>{material.uploaderRole === 'lecturer' ? 'Lecturer' : 'Student'}</span>
               </div>
             </div>
           </div>
@@ -130,14 +130,14 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
               {isDownloading ? (
                 <>
                   <div className="w-2.5 h-2.5 border border-white border-t-transparent rounded-full animate-spin" />
-                  <span className="hidden sm:inline">Muat turun...</span>
+                  <span className="hidden sm:inline">Downloading...</span>
                 </>
               ) : (
                 <>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  <span className="hidden sm:inline">Muat turun</span>
+                  <span className="hidden sm:inline">Download</span>
                 </>
               )}
             </button>
@@ -183,16 +183,16 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
                 </div>
                 
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  {isPDF && pdfError 
-                    ? 'Tidak dapat memaparkan PDF'
-                    : 'Pratonton tidak tersedia'
+                  {isPDF && pdfError
+                    ? 'Cannot display PDF'
+                    : 'Preview not available'
                   }
                 </h3>
                 
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
-                  {isPDF && pdfError 
-                    ? 'PDF ini tidak dapat dipaparkan dalam pelayar. Sila muat turun untuk melihat kandungan.'
-                    : `Jenis fail ${material.fileType.includes('word') ? 'Word' : material.fileType.includes('presentation') ? 'PowerPoint' : 'ini'} tidak boleh dilihat pratonton. Sila muat turun untuk membuka fail.`
+                  {isPDF && pdfError
+                    ? 'This PDF cannot be displayed in the browser. Please download to view the content.'
+                    : `This ${material.fileType.includes('word') ? 'Word' : material.fileType.includes('presentation') ? 'PowerPoint' : 'file'} type cannot be previewed. Please download to open the file.`
                   }
                 </p>
                 
@@ -205,14 +205,14 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
                     {isDownloading ? (
                       <>
                         <div className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Memuat turun...</span>
+                        <span>Downloading...</span>
                       </>
                     ) : (
                       <>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        <span>Muat Turun {material.fileName}</span>
+                        <span>Download {material.fileName}</span>
                       </>
                     )}
                   </button>
@@ -225,7 +225,7 @@ export function DocumentViewer({ material, isOpen, onClose }: DocumentViewerProp
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
-                      <span>Buka dalam tab baru</span>
+                      <span>Open in new tab</span>
                     </button>
                   )}
                 </div>

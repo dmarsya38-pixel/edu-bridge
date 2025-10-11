@@ -11,12 +11,32 @@ interface MaterialCardProps {
   onPreview?: (material: Material) => void;
   showUploader?: boolean;
   initialShowComments?: boolean;
+  highlight?: string;
+  commentId?: string;
 }
 
-export function MaterialCard({ material, onPreview, showUploader = false, initialShowComments = false }: MaterialCardProps) {
+export function MaterialCard({ material, onPreview, showUploader = false, initialShowComments = false, highlight = '', commentId = '' }: MaterialCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showComments, setShowComments] = useState(initialShowComments);
   const [commentCount, setCommentCount] = useState(0);
+
+  // Function to highlight text
+  const highlightText = (text: string, highlightTerm: string) => {
+    if (!highlightTerm.trim()) return text;
+
+    const regex = new RegExp(`(${highlightTerm})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  };
+
+  // Safe HTML rendering for highlighted text
+  const HighlightedText = ({ text, highlightTerm }: { text: string; highlightTerm: string }) => {
+    if (!highlightTerm.trim()) {
+      return <span>{text}</span>;
+    }
+
+    const highlightedText = highlightText(text, highlightTerm);
+    return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
+  };
   
   const handleDownload = async () => {
     if (isDownloading) return;
@@ -154,12 +174,12 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {material.title}
+                <HighlightedText text={material.title} highlightTerm={highlight} />
               </h3>
-              
+
               {material.description && (
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                  {material.description}
+                  <HighlightedText text={material.description} highlightTerm={highlight} />
                 </p>
               )}
             </div>
@@ -183,7 +203,7 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
               </span>
             )}
             {showUploader && (
-              <span>oleh {material.uploaderRole === 'lecturer' ? 'Pensyarah' : 'Pelajar'} | {material.uploaderName}</span>
+              <span>by {material.uploaderRole === 'lecturer' ? 'Lecturer' : 'Student'} | {material.uploaderName}</span>
             )}
           </div>
           
@@ -247,10 +267,11 @@ export function MaterialCard({ material, onPreview, showUploader = false, initia
       {/* Comments Section - Hidden for exam papers */}
       {showComments && material.materialType !== 'exam_paper' && (
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <CommentSection 
-            materialId={material.materialId} 
-            isVisible={showComments} 
+          <CommentSection
+            materialId={material.materialId}
+            isVisible={showComments}
             materialUploaderId={material.uploaderId}
+            commentId={commentId}
           />
         </div>
       )}

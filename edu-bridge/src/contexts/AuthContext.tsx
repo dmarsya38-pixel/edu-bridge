@@ -35,6 +35,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Listen to Firebase auth state changes
   useEffect(() => {
+    if (!auth) return;
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setAuthState(prev => ({ ...prev, loading: true, error: null }));
 

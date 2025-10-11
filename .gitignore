@@ -2,3 +2,6 @@ CLAUDE.md
 GEMINI.md
 .claude/settings.local.json
 .vercel
+node_modules/
+.next/
+dist/

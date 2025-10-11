@@ -1,5 +1,5 @@
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { getDb } from './firebase';
 
 // Initial programmes data
 const INITIAL_PROGRAMMES = [
@@ -281,7 +281,7 @@ export async function seedProgrammes(): Promise<void> {
         createdAt: serverTimestamp()
       };
       
-      await setDoc(doc(db, 'programmes', programme.programmeCode), programmeData);
+      await setDoc(doc(getDb(), 'programmes', programme.programmeCode), programmeData);
       console.log(`✓ Created programme: ${programme.programmeCode} - ${programme.programmeName}`);
     }
     
@@ -303,7 +303,7 @@ export async function seedSubjects(): Promise<void> {
         createdAt: serverTimestamp()
       };
       
-      await setDoc(doc(db, 'subjects', subject.subjectCode), subjectData);
+      await setDoc(doc(getDb(), 'subjects', subject.subjectCode), subjectData);
       console.log(`✓ Created subject: ${subject.subjectCode} - ${subject.subjectName}`);
     }
     

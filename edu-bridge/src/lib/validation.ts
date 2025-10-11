@@ -17,7 +17,11 @@ export interface MatricValidation {
 
 // Commerce Department program mappings
 const COMMERCE_PROGRAMS = {
-  DBS: 'Diploma in Business Studies',
+  DBS: 'Diploma in Business Information System',
+  DIB: 'Diploma in Islamic Banking',
+  DIF: 'Diploma in Islamic Finance',
+  DLS: 'Diploma in Logistic and Supply Chain Management',
+  DRM: 'Diploma in Retail Management',
   DAC: 'Diploma in Accountancy',
   DEC: 'Diploma in E-Commerce'
 } as const;

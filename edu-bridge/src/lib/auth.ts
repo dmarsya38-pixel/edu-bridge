@@ -3,7 +3,7 @@
  * Handles user registration, login, and user management
  */
 
-import { 
+import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -11,19 +11,22 @@ import {
   User as FirebaseUser,
   UserCredential
 } from 'firebase/auth';
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  query, 
-  collection, 
-  where, 
+import {
+  doc,
+  setDoc,
+  updateDoc,
+  query,
+  collection,
+  where,
   getDocs,
+  getDoc,
   serverTimestamp,
-  Timestamp 
+  Timestamp,
+  FieldValue
 } from 'firebase/firestore';
 
-import { auth, db } from './firebase';
+import { getAuthInstance, getDb } from './firebase';
+import { getUserProfileWithRetry, updateUserLastLogin } from './vercel-firestore';
 import { validateMatricId, formatPhoneNumber, generateDisplayName } from './validation';
 import type { 
   RegistrationFormData, 
@@ -43,7 +46,7 @@ import { AUTH_ERROR_CODES } from '@/types/user';
 export async function checkMatricIdExists(matricId: string): Promise<boolean> {
   try {
     const q = query(
-      collection(db, 'users'),
+      collection(getDb(), 'users'),
       where('matricId', '==', matricId.trim().toUpperCase())
     );
     const snapshot = await getDocs(q);
@@ -87,7 +90,7 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
 
     // Create Firebase Auth user
     const userCredential: UserCredential = await createUserWithEmailAndPassword(
-      auth,
+      getAuthInstance(),
       formData.email,
       formData.password
     );
@@ -140,7 +143,7 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
     };
 
     // Save to Firestore
-    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+    await setDoc(doc(getDb(), 'users', userCredential.user.uid), userData);
 
     // Convert to User type for response
     const user: User = {
@@ -152,7 +155,7 @@ export async function registerUser(formData: RegistrationFormData): Promise<Regi
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      displayName: userData.profile.displayName,
+      displayName: userData.profile?.displayName,
       isVerified: userData.isVerified
     };
 
@@ -178,48 +181,25 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
   try {
     // Sign in with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(
-      auth,
+      getAuthInstance(),
       formData.email,
       formData.password
     );
 
-    // Get user profile from Firestore with retry logic
-    let userDoc;
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Get user profile using Vercel-optimized Firestore utilities
+    const userProfileResult = await getUserProfileWithRetry(userCredential.user.uid);
     
-    while (retryCount < maxRetries) {
-      try {
-        userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        break;
-      } catch (firestoreError) {
-        retryCount++;
-        console.warn(`Firestore connection attempt ${retryCount} failed:`, (firestoreError as Error)?.message || 'Unknown error');
-        if (retryCount >= maxRetries) {
-          throw firestoreError;
-        }
-        // Wait before retry (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
-      }
-    }
-    
-    if (!userDoc || !userDoc.exists()) {
+    if (!userProfileResult.success) {
       return {
         success: false,
-        error: {
-          code: 'user-profile-not-found',
-          message: 'User profile not found. Please contact admin.',
-        }
+        error: userProfileResult.error
       };
     }
 
-    const userData = userDoc.data() as UserProfile;
+    const userData = userProfileResult.user as UserProfile;
 
-    // Update last login
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
-      ...userData,
-      lastLogin: serverTimestamp()
-    }, { merge: true });
+    // Update last login using Vercel-optimized utilities
+    await updateUserLastLogin(userCredential.user.uid);
 
     // Convert to User type for response - include lecturer fields
     const user: User = {
@@ -231,10 +211,10 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      avatar: userData.profile.avatar,
-      displayName: userData.profile.displayName,
+      avatar: userData.profile?.avatar,
+      displayName: userData.profile?.displayName,
       isVerified: userData.isVerified,
-      
+
       // Include lecturer-specific fields
       ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
       ...(userData.programmes && { programmes: userData.programmes }),
@@ -261,7 +241,7 @@ export async function loginUser(formData: LoginFormData): Promise<LoginResponse>
  */
 export async function logoutUser(): Promise<void> {
   try {
-    await signOut(auth);
+    await signOut(getAuthInstance());
   } catch (error) {
     console.error('Logout error:', error);
     throw error;
@@ -273,13 +253,14 @@ export async function logoutUser(): Promise<void> {
  */
 export async function getUserProfile(uid: string): Promise<User | null> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
+    // Get user profile using Vercel-optimized utilities
+    const userProfileResult = await getUserProfileWithRetry(uid);
     
-    if (!userDoc.exists()) {
+    if (!userProfileResult.success || !userProfileResult.user) {
       return null;
     }
 
-    const userData = userDoc.data() as UserProfile;
+    const userData = userProfileResult.user as UserProfile;
     
     return {
       uid: userData.uid,
@@ -290,15 +271,31 @@ export async function getUserProfile(uid: string): Promise<User | null> {
       program: userData.program,
       programName: userData.programName,
       entryYear: userData.entryYear,
-      avatar: userData.profile.avatar,
-      displayName: userData.profile.displayName,
+      avatar: userData.profile?.avatar,
+      displayName: userData.profile?.displayName,
       isVerified: userData.isVerified,
-      
+
+      // Include profile fields if they exist
+      profile: {
+        ...(userData.profile?.nickname && { nickname: userData.profile.nickname }),
+        ...(userData.profile?.bio && { bio: userData.profile.bio }),
+        ...(userData.profile?.interests && { interests: userData.profile.interests }),
+        ...(userData.profile?.displayName && { displayName: userData.profile.displayName }),
+        ...(userData.profile?.avatar && { avatar: userData.profile.avatar })
+      },
+
+      // Include preferences if they exist
+      preferences: {
+        ...(userData.preferences?.theme && { theme: userData.preferences.theme }),
+        ...(userData.preferences?.notifications !== undefined && { notifications: userData.preferences.notifications }),
+        ...(userData.preferences?.emailUpdates !== undefined && { emailUpdates: userData.preferences.emailUpdates })
+      },
+
       // Include lecturer-specific fields if they exist
       ...(userData.teachingSubjects && { teachingSubjects: userData.teachingSubjects }),
       ...(userData.programmes && { programmes: userData.programmes }),
       ...(userData.department && { department: userData.department }),
-      ...(userData.programName && { programName: userData.programName })
+      ...(userData.employeeId && { employeeId: userData.employeeId })
     };
 
   } catch (error) {
@@ -381,7 +378,7 @@ function mapFirebaseError(error: unknown): AuthError {
  * Check if current user is authenticated
  */
 export function getCurrentUser(): FirebaseUser | null {
-  return auth.currentUser;
+  return getAuthInstance().currentUser;
 }
 
 /**
@@ -389,9 +386,131 @@ export function getCurrentUser(): FirebaseUser | null {
  */
 export function waitForAuthReady(): Promise<FirebaseUser | null> {
   return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = getAuthInstance().onAuthStateChanged((user: FirebaseUser | null) => {
       unsubscribe();
       resolve(user);
     });
   });
+}
+
+/**
+ * Update user profile and preferences
+ * Uses updateDoc to safely update only specified fields without overwriting existing data
+ */
+export async function updateUserProfile(
+  uid: string,
+  updates: {
+    profile?: {
+      nickname?: string;
+      bio?: string;
+      interests?: string[];
+    };
+    preferences?: {
+      theme?: 'light' | 'dark' | 'system';
+      notifications?: boolean;
+      emailUpdates?: boolean;
+    };
+  }
+): Promise<boolean> {
+  try {
+    const userDocRef = doc(getDb(), 'users', uid);
+
+    // Build update payload dynamically - only include provided fields
+    const updatePayload: Record<string, unknown> = {
+      lastLogin: serverTimestamp() // Update last login timestamp
+    };
+
+    // Add profile updates if provided
+    if (updates.profile) {
+      const profile = updates.profile;
+      Object.keys(profile).forEach(key => {
+        const profileKey = key as keyof typeof profile;
+        if (profile[profileKey] !== undefined) {
+          updatePayload[`profile.${profileKey}`] = profile[profileKey];
+        }
+      });
+    }
+
+    // Add preference updates if provided
+    if (updates.preferences) {
+      const preferences = updates.preferences;
+      Object.keys(preferences).forEach(key => {
+        const prefKey = key as keyof typeof preferences;
+        if (preferences[prefKey] !== undefined) {
+          updatePayload[`preferences.${prefKey}`] = preferences[prefKey];
+        }
+      });
+    }
+
+    // Use updateDoc to only update the specified fields
+    // This preserves all existing user data
+    await updateDoc(userDocRef, updatePayload);
+
+    console.log('User profile updated successfully for:', uid, updatePayload);
+    return true;
+
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update lecturer profile (programmes and teaching subjects only)
+ * Uses updateDoc to safely update only specified fields without overwriting existing data
+ */
+export async function updateLecturerProfile(
+  uid: string,
+  updates: {
+    programmes: string[];
+    teachingSubjects?: string[]; // Make optional to prevent accidental overwrites
+  }
+): Promise<boolean> {
+  try {
+    const userDocRef = doc(getDb(), 'users', uid);
+
+    // Fetch programme name for the new programme
+    let programmeName = 'Unknown Programme';
+    if (updates.programmes.length > 0) {
+      try {
+        const programmeDoc = await getDoc(doc(getDb(), 'programmes', updates.programmes[0]));
+        if (programmeDoc.exists()) {
+          const programmeData = programmeDoc.data();
+          programmeName = programmeData.programmeName || 'Unknown Programme';
+        }
+      } catch (error) {
+        console.warn('Failed to fetch programme name during profile update:', error);
+      }
+    }
+
+    // Build update payload dynamically - only include teachingSubjects if provided
+    const updatePayload: {
+      programmes: string[];
+      programmeName: string;
+      programName: string;
+      lastLogin: FieldValue;
+      teachingSubjects?: string[];
+    } = {
+      programmes: updates.programmes,
+      programmeName: programmeName, // Update programmeName as well
+      programName: programmeName, // Update programName to match programmeName from programmes collection
+      lastLogin: serverTimestamp() // Update last login timestamp
+    };
+
+    // Only include teachingSubjects if explicitly provided (prevents accidental overwrites)
+    if (updates.teachingSubjects !== undefined) {
+      updatePayload.teachingSubjects = updates.teachingSubjects;
+    }
+
+    // Use updateDoc to only update the specified fields
+    // This preserves all existing user data (name, email, profile, etc.)
+    await updateDoc(userDocRef, updatePayload);
+
+    console.log('Lecturer profile updated successfully for:', uid, { programmeName });
+    return true;
+
+  } catch (error) {
+    console.error('Error updating lecturer profile:', error);
+    throw error;
+  }
 }

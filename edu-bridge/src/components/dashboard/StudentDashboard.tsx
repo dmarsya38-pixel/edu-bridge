@@ -1,23 +1,26 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ProgrammeBrowser } from '@/components/academic/ProgrammeBrowser';
 import { MaterialsList } from '@/components/academic/MaterialsList';
 import { DocumentViewer } from '@/components/academic/DocumentViewer';
 import { MaterialUploadForm } from '@/components/upload/MaterialUploadForm';
+import { SearchBar } from '@/components/search/SearchBar';
+import { SearchResults } from '@/components/search/SearchResults';
 import { getSubjectByProgrammeAndCode } from '@/lib/academic';
 import type { User } from '@/types/user';
-import type { Subject, Material } from '@/types/academic';
+import type { Subject, Material, SearchResults as SearchResultsType } from '@/types/academic';
 
 interface StudentDashboardProps {
   user: User;
 }
 
-type ViewMode = 'dashboard' | 'browser' | 'materials';
+type ViewMode = 'dashboard' | 'browser' | 'materials' | 'search';
 
 export function StudentDashboard({ user }: StudentDashboardProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [previewMaterial, setPreviewMaterial] = useState<Material | null>(null);
@@ -25,13 +28,40 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
 
-  // Handle URL parameters for deep linking from notifications
+  // Search state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<SearchResultsType | null>(null);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [highlight, setHighlight] = useState<string>('');
+  const [commentId, setCommentId] = useState<string>('');
+
+  // Handle URL parameters for deep linking from notifications and search
   useEffect(() => {
     const programmeId = searchParams.get('programme');
     const subjectCode = searchParams.get('subject');
     const materialId = searchParams.get('material');
-    
-    if (programmeId && subjectCode && materialId) {
+    const searchQueryParam = searchParams.get('searchQuery');
+    const highlightParam = searchParams.get('highlight');
+    const commentIdParam = searchParams.get('commentId');
+    const viewParam = searchParams.get('view');
+
+    // Handle view parameters
+    if (viewParam === 'browser') {
+      setViewMode('browser');
+      return;
+    }
+
+    // Handle search parameters
+    if (searchQueryParam) {
+      setSearchQuery(searchQueryParam);
+      setHighlight(highlightParam || searchQueryParam);
+      setCommentId(commentIdParam || '');
+      setViewMode('search');
+      return; // Prioritize search over other views
+    }
+
+    // Handle subject navigation (with or without specific material)
+    if (programmeId && subjectCode) {
       const loadSubjectFromUrl = async () => {
         setIsLoadingFromUrl(true);
         try {
@@ -39,6 +69,11 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           if (subject) {
             setSelectedSubject(subject);
             setViewMode('materials');
+
+            // If comment highlight is requested, store it
+            if (commentIdParam) {
+              setCommentId(commentIdParam);
+            }
           }
         } catch (error) {
           console.error('Error loading subject from URL:', error);
@@ -46,7 +81,7 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           setIsLoadingFromUrl(false);
         }
       };
-      
+
       loadSubjectFromUrl();
     }
   }, [searchParams]);
@@ -60,14 +95,10 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
     setViewMode('browser');
   };
 
-  const handleBackToDashboard = () => {
-    setViewMode('dashboard');
-    setSelectedSubject(null);
-  };
-
   const handleBackToBrowser = () => {
     setViewMode('browser');
     setSelectedSubject(null);
+    router.push('/dashboard?view=browser');
   };
 
   const handlePreviewMaterial = (material: Material) => {
@@ -81,9 +112,26 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
   const handleUploadSuccess = (materialId: string) => {
     setUploadSuccess(materialId);
     setShowUploadModal(false);
-    
+
     // Clear success message after 5 seconds
     setTimeout(() => setUploadSuccess(null), 5000);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setHighlight(query);
+    setViewMode('search');
+    router.push(`/dashboard?searchQuery=${encodeURIComponent(query)}`);
+  };
+
+  const handleBackToDashboard = () => {
+    setViewMode('dashboard');
+    setSelectedSubject(null);
+    setSearchQuery('');
+    setSearchResults(null);
+    setHighlight('');
+    setCommentId('');
+    router.push('/dashboard');
   };
 
   // Show loading state when navigating from URL
@@ -99,6 +147,25 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
   }
 
   // Render different views based on current mode
+  if (viewMode === 'search') {
+    return (
+      <>
+        <SearchResults
+          query={searchQuery}
+          highlight={highlight}
+          commentId={commentId}
+          onBack={handleBackToDashboard}
+          onPreview={handlePreviewMaterial}
+        />
+        <DocumentViewer
+          material={previewMaterial!}
+          isOpen={!!previewMaterial}
+          onClose={handleClosePreview}
+        />
+      </>
+    );
+  }
+
   if (viewMode === 'materials' && selectedSubject) {
     return (
       <>
@@ -106,6 +173,8 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           subject={selectedSubject}
           onBack={handleBackToBrowser}
           onPreview={handlePreviewMaterial}
+          highlight={highlight}
+          commentId={commentId}
         />
         <DocumentViewer
           material={previewMaterial!}
@@ -142,6 +211,15 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
 
   return (
     <>
+      {/* Search Bar - Global */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+        <SearchBar
+          onSearch={handleSearch}
+          placeholder="Search materials, subjects, programmes..."
+          className="w-full"
+        />
+      </div>
+
       {/* Welcome Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
         <div className="flex items-start justify-between">
@@ -226,28 +304,13 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Upload Materials</h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-            Share your notes and resources with classmates. Uploads require admin approval.
+            Share your notes and resources with classmates. Uploads require Lecturer approval.
           </p>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
           >
             Upload Material
-          </button>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">My Activity</h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-            Track your downloads, uploads, and participation in discussions.
-          </p>
-          <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
-            View Activity
           </button>
         </div>
 
@@ -261,7 +324,10 @@ export function StudentDashboard({ user }: StudentDashboardProps) {
           <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
             Update your profile, preferences, and notification settings.
           </p>
-          <button className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+          <button
+            onClick={() => router.push('/profile')}
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+          >
             Manage Profile
           </button>
         </div>

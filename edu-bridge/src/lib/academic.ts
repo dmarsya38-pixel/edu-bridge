@@ -14,8 +14,9 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './firebase';
-import { db } from './firebase';
+import { getStorageInstance } from './firebase';
+import { getDb } from './firebase';
+import { sendCommentEmail, sendApprovalEmail, generateMaterialLink } from './email';
 import type {
   Programme,
   Subject,
@@ -26,7 +27,18 @@ import type {
   CommentCreateData,
   CommentAttachment,
   CommentNotification,
-  NotificationCreateData
+  NotificationCreateData,
+  ApprovalNotification,
+  ApprovalNotificationCreateData,
+  SearchResults,
+  SearchResult,
+  SearchFilters,
+  SearchOptions,
+  SearchAllOptions,
+  CommentWithHighlight,
+  MaterialWithHighlight,
+  HighlightedFields,
+  SubjectSearchResult
 } from '@/types/academic';
 import type { User } from '@/types/user';
 
@@ -46,8 +58,11 @@ export async function getProgrammes(): Promise<Programme[]> {
   
   try {
     console.log('🔍 Firestore query: Loading programmes');
+    if (!getDb()) {
+      throw new Error('Firestore is not initialized');
+    }
     const querySnapshot = await getDocs(
-      query(collection(db, 'programmes'), orderBy('programmeCode'))
+      query(collection(getDb(), 'programmes'), orderBy('programmeCode'))
     );
     
     const programmes = querySnapshot.docs.map(doc => ({
@@ -69,7 +84,7 @@ export async function getProgrammes(): Promise<Programme[]> {
 
 export async function getProgramme(programmeId: string): Promise<Programme | null> {
   try {
-    const docSnap = await getDoc(doc(db, 'programmes', programmeId));
+    const docSnap = await getDoc(doc(getDb(), 'programmes', programmeId));
     if (docSnap.exists()) {
       return {
         ...docSnap.data(),
@@ -85,7 +100,7 @@ export async function getProgramme(programmeId: string): Promise<Programme | nul
 
 export async function createProgramme(programme: Omit<Programme, 'programmeId' | 'createdAt'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, 'programmes'), {
+    const docRef = await addDoc(collection(getDb(), 'programmes'), {
       ...programme,
       createdAt: serverTimestamp()
     });
@@ -100,7 +115,7 @@ export async function createProgramme(programme: Omit<Programme, 'programmeId' |
 export async function getSubjects(): Promise<Subject[]> {
   try {
     const querySnapshot = await getDocs(
-      query(collection(db, 'subjects'), orderBy('subjectCode'))
+      query(collection(getDb(), 'subjects'), orderBy('subjectCode'))
     );
     return querySnapshot.docs.map(doc => ({
       ...doc.data(),
@@ -116,7 +131,7 @@ export async function getSubjectsByProgramme(programmeId: string): Promise<Subje
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'subjects'),
+        collection(getDb(), 'subjects'),
         where('programmeId', '==', programmeId),
         orderBy('semester'),
         orderBy('subjectCode')
@@ -129,6 +144,68 @@ export async function getSubjectsByProgramme(programmeId: string): Promise<Subje
   } catch (error) {
     console.error('Error fetching subjects by programme:', error);
     return [];
+  }
+}
+
+/**
+ * Get subjects by multiple programmes (for lecturer profile management)
+ * Returns subjects organized by programme and semester
+ */
+export async function getSubjectsByProgrammes(programmeIds: string[]): Promise<Map<string, Map<number, Subject[]>>> {
+  if (programmeIds.length === 0) {
+    return new Map();
+  }
+
+  const result = new Map<string, Map<number, Subject[]>>();
+
+  try {
+    console.log('🔍 Firestore query: Loading subjects for programmes', programmeIds);
+
+    // Create queries for each programme (Firestore 'in' operator has limit of 10 items)
+    const batchSize = 10;
+    const allSubjects: Subject[] = [];
+
+    for (let i = 0; i < programmeIds.length; i += batchSize) {
+      const batch = programmeIds.slice(i, i + batchSize);
+
+      const querySnapshot = await getDocs(
+        query(
+          collection(getDb(), 'subjects'),
+          where('programmeId', 'in', batch),
+          orderBy('programmeId'),
+          orderBy('semester'),
+          orderBy('subjectCode')
+        )
+      );
+
+      const batchSubjects = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        subjectId: doc.id
+      })) as Subject[];
+
+      allSubjects.push(...batchSubjects);
+    }
+
+    // Organize subjects by programme and semester
+    for (const subject of allSubjects) {
+      if (!result.has(subject.programmeId)) {
+        result.set(subject.programmeId, new Map());
+      }
+
+      const programmeSubjects = result.get(subject.programmeId)!;
+      if (!programmeSubjects.has(subject.semester)) {
+        programmeSubjects.set(subject.semester, []);
+      }
+
+      programmeSubjects.get(subject.semester)!.push(subject);
+    }
+
+    console.log(`✅ Loaded ${allSubjects.length} subjects across ${programmeIds.length} programmes`);
+    return result;
+
+  } catch (error) {
+    console.error('Error fetching subjects by programmes:', error);
+    return new Map();
   }
 }
 
@@ -156,7 +233,7 @@ export async function getSubjectsBySemester(programmeId: string, semester: numbe
     // Use regular getDocs (with Firebase's built-in caching)
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'subjects'),
+        collection(getDb(), 'subjects'),
         where('programmeId', '==', programmeId),
         where('semester', '==', semester),
         orderBy('subjectCode')
@@ -184,7 +261,7 @@ export async function getSubjectByProgrammeAndCode(programmeId: string, subjectC
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'subjects'),
+        collection(getDb(), 'subjects'),
         where('programmeId', '==', programmeId),
         where('subjectCode', '==', subjectCode)
       )
@@ -207,7 +284,7 @@ export async function getSubjectByProgrammeAndCode(programmeId: string, subjectC
 
 export async function createSubject(subject: Omit<Subject, 'subjectId' | 'createdAt'>): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db, 'subjects'), {
+    const docRef = await addDoc(collection(getDb(), 'subjects'), {
       ...subject,
       createdAt: serverTimestamp()
     });
@@ -221,7 +298,7 @@ export async function createSubject(subject: Omit<Subject, 'subjectId' | 'create
 // Material Management
 export async function getMaterials(filter?: MaterialFilter): Promise<Material[]> {
   try {
-    let q = query(collection(db, 'materials'));
+    let q = query(collection(getDb(), 'materials'));
     
     // Apply filters
     if (filter?.programmeId) {
@@ -257,7 +334,7 @@ export async function getMaterials(filter?: MaterialFilter): Promise<Material[]>
       const searchTerm = filter.searchQuery.toLowerCase();
       materials = materials.filter(material =>
         material.title.toLowerCase().includes(searchTerm) ||
-        material.description?.toLowerCase().includes(searchTerm) ||
+        (material.description && material.description.toLowerCase().includes(searchTerm)) ||
         material.subjectName.toLowerCase().includes(searchTerm)
       );
     }
@@ -271,7 +348,7 @@ export async function getMaterials(filter?: MaterialFilter): Promise<Material[]>
 
 export async function getMaterial(materialId: string): Promise<Material | null> {
   try {
-    const docSnap = await getDoc(doc(db, 'materials', materialId));
+    const docSnap = await getDoc(doc(getDb(), 'materials', materialId));
     if (docSnap.exists()) {
       return {
         ...docSnap.data(),
@@ -314,7 +391,7 @@ export async function createMaterial(
       views: 0
     };
     
-    const docRef = await addDoc(collection(db, 'materials'), materialData);
+    const docRef = await addDoc(collection(getDb(), 'materials'), materialData);
     return docRef.id;
   } catch (error) {
     console.error('Error creating material:', error);
@@ -324,7 +401,7 @@ export async function createMaterial(
 
 export async function updateMaterial(materialId: string, updates: Partial<Material>): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), updates);
+    await updateDoc(doc(getDb(), 'materials', materialId), updates);
   } catch (error) {
     console.error('Error updating material:', error);
     throw error;
@@ -333,9 +410,205 @@ export async function updateMaterial(materialId: string, updates: Partial<Materi
 
 export async function deleteMaterial(materialId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, 'materials', materialId));
+    await deleteDoc(doc(getDb(), 'materials', materialId));
   } catch (error) {
     console.error('Error deleting material:', error);
+    throw error;
+  }
+}
+
+export async function deleteMaterialWithStorage(materialId: string, adminId?: string, reason?: string): Promise<void> {
+  try {
+    // Get material details first for storage cleanup and audit
+    const material = await getMaterial(materialId);
+    if (!material) {
+      throw new Error('Material not found');
+    }
+
+    // Validate and sanitize material data
+    const sanitizedMaterial = {
+      ...material,
+      title: material.title || 'Unknown Title',
+      materialType: material.materialType || 'unknown',
+      uploaderName: material.uploaderName || 'Unknown User',
+      uploaderId: material.uploaderId || 'unknown',
+      downloadURL: material.downloadURL || null
+    };
+
+    // Validate required fields
+    if (!sanitizedMaterial.downloadURL) {
+      console.warn('⚠️ Material has no download URL, skipping storage deletion');
+    }
+
+    // Extract storage path from download URL
+    const storagePath = sanitizedMaterial.downloadURL
+      ? extractStoragePathFromURL(sanitizedMaterial.downloadURL)
+      : null;
+
+    // Try to delete from storage (don't fail if file doesn't exist)
+    if (storagePath && sanitizedMaterial.downloadURL) {
+      try {
+        const { deleteFile } = await import('./storage');
+        await deleteFile(storagePath);
+        console.log('🗑️ Storage file deleted:', storagePath);
+      } catch (storageError) {
+        console.warn('⚠️ Storage file deletion failed (file may not exist):', storageError);
+        // Continue with Firestore deletion even if storage fails
+      }
+    }
+
+    // Log admin action if admin details provided
+    if (adminId) {
+      try {
+        await logAdminAction({
+          adminId,
+          action: 'delete_material',
+          targetId: materialId,
+          targetType: 'material',
+          details: {
+            materialTitle: sanitizedMaterial.title,
+            materialType: sanitizedMaterial.materialType,
+            uploaderId: sanitizedMaterial.uploaderId,
+            uploaderName: sanitizedMaterial.uploaderName,
+            reason: reason || 'No reason provided'
+          }
+        });
+      } catch (logError) {
+        console.warn('⚠️ Failed to log admin action:', logError);
+        // Continue with deletion even if logging fails
+      }
+    }
+
+    // Delete Firestore document
+    await deleteDoc(doc(getDb(), 'materials', materialId));
+    console.log('🗑️ Material deleted from Firestore:', materialId);
+
+  } catch (error) {
+    console.error('Error deleting material with storage:', error);
+    throw error;
+  }
+}
+
+export async function getMaterialsWithFilters(filter?: MaterialFilter): Promise<{
+  materials: Material[];
+  total: number;
+}> {
+  try {
+    let q = query(collection(getDb(), 'materials'));
+
+    // Apply filters
+    if (filter?.programmeId) {
+      q = query(q, where('programmeId', '==', filter.programmeId));
+    }
+    if (filter?.semester) {
+      q = query(q, where('semester', '==', filter.semester));
+    }
+    if (filter?.subjectCode) {
+      q = query(q, where('subjectCode', '==', filter.subjectCode));
+    }
+    if (filter?.materialType) {
+      q = query(q, where('materialType', '==', filter.materialType));
+    }
+    if (filter?.approvalStatus) {
+      q = query(q, where('approvalStatus', '==', filter.approvalStatus));
+    }
+    if (filter?.uploaderId) {
+      q = query(q, where('uploaderId', '==', filter.uploaderId));
+    }
+
+    // Order by most recent
+    q = query(q, orderBy('uploadDate', 'desc'));
+
+    const querySnapshot = await getDocs(q);
+    let materials = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      materialId: doc.id
+    })) as Material[];
+
+    // Apply text search filter if provided
+    if (filter?.searchQuery) {
+      const searchTerm = filter.searchQuery.toLowerCase();
+      materials = materials.filter(material => {
+        const searchableText = [
+          material.title || '',
+          material.description || '',
+          material.subjectName || '',
+          material.uploaderName || '',
+          material.subjectCode || '',
+          material.programmeId || '',
+          material.materialType || ''
+        ].join(' ').toLowerCase();
+
+        return searchableText.includes(searchTerm);
+      });
+    }
+
+    return {
+      materials,
+      total: materials.length
+    };
+  } catch (error) {
+    console.error('Error fetching materials with filters:', error);
+    return {
+      materials: [],
+      total: 0
+    };
+  }
+}
+
+// Helper function to extract storage path from download URL
+function extractStoragePathFromURL(downloadURL: string): string | null {
+  if (!downloadURL || typeof downloadURL !== 'string') {
+    console.warn('⚠️ Invalid download URL provided');
+    return null;
+  }
+
+  try {
+    // Firebase Storage download URLs follow this pattern:
+    // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media&token={token}
+    const url = new URL(downloadURL);
+    const pathParts = url.pathname.split('/o/');
+
+    if (pathParts.length < 2) {
+      console.warn('⚠️ Invalid Firebase Storage URL format:', downloadURL);
+      return null;
+    }
+
+    // Decode the path part (URL encoded)
+    const encodedPath = pathParts[1].split('?')[0]; // Remove query parameters
+    if (!encodedPath) {
+      console.warn('⚠️ No path found in Firebase Storage URL:', downloadURL);
+      return null;
+    }
+
+    return decodeURIComponent(encodedPath);
+  } catch (error) {
+    console.warn('⚠️ Failed to extract storage path from URL:', downloadURL, error);
+    return null;
+  }
+}
+
+// Admin action logging interface
+interface AdminActionLog {
+  adminId: string;
+  action: string;
+  targetId: string;
+  targetType: string;
+  details: Record<string, unknown>;
+  timestamp: unknown;
+}
+
+// Log admin actions for audit trail
+async function logAdminAction(action: Omit<AdminActionLog, 'timestamp'>): Promise<void> {
+  try {
+    const logsRef = collection(getDb(), 'admin_logs');
+    await addDoc(logsRef, {
+      ...action,
+      timestamp: serverTimestamp()
+    });
+    console.log('📝 Admin action logged:', action.action);
+  } catch (error) {
+    console.error('Error logging admin action:', error);
     throw error;
   }
 }
@@ -343,7 +616,7 @@ export async function deleteMaterial(materialId: string): Promise<void> {
 // Material approval functions for admin
 export async function approveMaterial(materialId: string, adminId: string): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'approved',
       approvedBy: adminId,
       approvedDate: serverTimestamp()
@@ -356,7 +629,7 @@ export async function approveMaterial(materialId: string, adminId: string): Prom
 
 export async function rejectMaterial(materialId: string, adminId: string, reason: string): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'rejected',
       approvedBy: adminId,
       approvedDate: serverTimestamp(),
@@ -368,12 +641,12 @@ export async function rejectMaterial(materialId: string, adminId: string, reason
   }
 }
 
-// Get pending materials for admin approval
+// Get pending materials for lecturer approval
 export async function getPendingMaterials(): Promise<Material[]> {
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'materials'),
+        collection(getDb(), 'materials'),
         where('approvalStatus', '==', 'pending'),
         orderBy('uploadDate', 'desc')
       )
@@ -391,7 +664,7 @@ export async function getPendingMaterials(): Promise<Material[]> {
 // Lecturer Subject Management
 export async function getLecturerSubjects(lecturerId: string): Promise<string[]> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', lecturerId));
+    const userDoc = await getDoc(doc(getDb(), 'users', lecturerId));
     if (userDoc.exists()) {
       const userData = userDoc.data();
       return userData.teachingSubjects || [];
@@ -405,7 +678,7 @@ export async function getLecturerSubjects(lecturerId: string): Promise<string[]>
 
 export async function updateLecturerSubjects(lecturerId: string, subjectCodes: string[]): Promise<void> {
   try {
-    await updateDoc(doc(db, 'users', lecturerId), {
+    await updateDoc(doc(getDb(), 'users', lecturerId), {
       teachingSubjects: subjectCodes
     });
   } catch (error) {
@@ -417,7 +690,7 @@ export async function updateLecturerSubjects(lecturerId: string, subjectCodes: s
 export async function getEligibleLecturers(programmeId: string, subjectCode: string): Promise<User[]> {
   try {
     // Get lecturers who teach this subject and programme
-    const usersRef = collection(db, 'users');
+    const usersRef = collection(getDb(), 'users');
     const lecturerQuery = query(
       usersRef,
       where('role', '==', 'lecturer'),
@@ -447,7 +720,7 @@ export async function getPendingMaterialsForLecturer(lecturerId: string): Promis
     }
     
     // Get all pending materials
-    const materialsRef = collection(db, 'materials');
+    const materialsRef = collection(getDb(), 'materials');
     const pendingQuery = query(
       materialsRef,
       where('approvalStatus', '==', 'pending'),
@@ -472,17 +745,48 @@ export async function getPendingMaterialsForLecturer(lecturerId: string): Promis
 }
 
 export async function approveMaterialByLecturer(
-  materialId: string, 
-  lecturerId: string, 
+  materialId: string,
+  lecturerId: string,
   lecturerName: string
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    // Get material details first for email notification
+    const material = await getMaterial(materialId);
+    if (!material) {
+      throw new Error('Material not found');
+    }
+
+    // Update material status
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'approved',
       approvedBy: lecturerId,
       approverName: lecturerName,
       approverRole: 'lecturer',
       approvedDate: serverTimestamp()
+    });
+
+    // Send in-app notification to material uploader
+    createApprovalNotification({
+      userId: material.uploaderId,
+      materialId: material.materialId,
+      materialTitle: material.title,
+      approverId: lecturerId,
+      approverName: lecturerName,
+      approvalAction: 'approved',
+      subjectCode: material.subjectCode,
+      programmeId: material.programmeId
+    }).catch(error => {
+      console.error('Failed to create approval notification:', error);
+    });
+
+    // Send email notification to material uploader
+    sendMaterialApprovalEmailNotification({
+      material,
+      approverName: lecturerName,
+      approvalAction: 'approved',
+      recipientUserId: material.uploaderId
+    }).catch(error => {
+      console.error('Failed to send approval email notification:', error);
     });
   } catch (error) {
     console.error('Error approving material by lecturer:', error);
@@ -491,19 +795,52 @@ export async function approveMaterialByLecturer(
 }
 
 export async function rejectMaterialByLecturer(
-  materialId: string, 
-  lecturerId: string, 
+  materialId: string,
+  lecturerId: string,
   lecturerName: string,
   reason: string
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, 'materials', materialId), {
+    // Get material details first for email notification
+    const material = await getMaterial(materialId);
+    if (!material) {
+      throw new Error('Material not found');
+    }
+
+    // Update material status
+    await updateDoc(doc(getDb(), 'materials', materialId), {
       approvalStatus: 'rejected',
       approvedBy: lecturerId,
       approverName: lecturerName,
       approverRole: 'lecturer',
       rejectionReason: reason,
       approvedDate: serverTimestamp()
+    });
+
+    // Send in-app notification to material uploader
+    createApprovalNotification({
+      userId: material.uploaderId,
+      materialId: material.materialId,
+      materialTitle: material.title,
+      approverId: lecturerId,
+      approverName: lecturerName,
+      approvalAction: 'rejected',
+      rejectionReason: reason,
+      subjectCode: material.subjectCode,
+      programmeId: material.programmeId
+    }).catch(error => {
+      console.error('Failed to create rejection notification:', error);
+    });
+
+    // Send email notification to material uploader
+    sendMaterialApprovalEmailNotification({
+      material,
+      approverName: lecturerName,
+      approvalAction: 'rejected',
+      rejectionReason: reason,
+      recipientUserId: material.uploaderId
+    }).catch(error => {
+      console.error('Failed to send rejection email notification:', error);
     });
   } catch (error) {
     console.error('Error rejecting material by lecturer:', error);
@@ -516,7 +853,7 @@ export async function incrementDownloadCount(materialId: string): Promise<void> 
   try {
     const material = await getMaterial(materialId);
     if (material) {
-      await updateDoc(doc(db, 'materials', materialId), {
+      await updateDoc(doc(getDb(), 'materials', materialId), {
         downloadCount: (material.downloadCount || 0) + 1,
         lastAccessed: serverTimestamp()
       });
@@ -531,7 +868,7 @@ export async function getPopularMaterials(limitCount: number = 10): Promise<Mate
   try {
     const querySnapshot = await getDocs(
       query(
-        collection(db, 'materials'),
+        collection(getDb(), 'materials'),
         where('approvalStatus', '==', 'approved'),
         orderBy('downloadCount', 'desc'),
         limit(limitCount)
@@ -557,7 +894,7 @@ export async function getLecturerStats(lecturerId: string): Promise<{
   try {
     // Get lecturer's uploaded materials
     const materialsQuery = query(
-      collection(db, 'materials'),
+      collection(getDb(), 'materials'),
       where('uploaderId', '==', lecturerId)
     );
     const materialsSnapshot = await getDocs(materialsQuery);
@@ -595,7 +932,7 @@ export async function getLecturerStats(lecturerId: string): Promise<{
 // Comment System Functions
 export async function getComments(materialId: string): Promise<Comment[]> {
   try {
-    const commentsRef = collection(db, 'materials', materialId, 'comments');
+    const commentsRef = collection(getDb(), 'materials', materialId, 'comments');
     const querySnapshot = await getDocs(
       query(commentsRef, orderBy('createdAt', 'desc'))
     );
@@ -607,6 +944,126 @@ export async function getComments(materialId: string): Promise<Comment[]> {
   } catch (error) {
     console.error('Error fetching comments:', error);
     return [];
+  }
+}
+
+// Send material approval notification email
+async function sendMaterialApprovalEmailNotification(params: {
+  material: Material;
+  approverName: string;
+  approvalAction: 'approved' | 'rejected';
+  rejectionReason?: string;
+  recipientUserId: string;
+}): Promise<void> {
+  try {
+    // Check if user wants email notifications
+    const userPrefs = await getUserEmailAndPreferences(params.recipientUserId);
+    if (!userPrefs || !userPrefs.emailUpdates) {
+      console.log('User has disabled email notifications or user not found');
+      return;
+    }
+
+    // Generate material link
+    const materialLink = generateMaterialLink(
+      params.material.programmeId,
+      params.material.subjectCode,
+      params.material.materialId,
+      false // Don't show comments for approval notifications
+    );
+
+    // Send email
+    const emailResult = await sendApprovalEmail({
+      userEmail: userPrefs.email,
+      approverName: params.approverName,
+      materialTitle: params.material.title,
+      approvalAction: params.approvalAction,
+      rejectionReason: params.rejectionReason,
+      materialLink,
+      programmeId: params.material.programmeId,
+      subjectCode: params.material.subjectCode
+    });
+
+    if (emailResult.success) {
+      console.log('✅ Approval email notification sent to:', userPrefs.email);
+      if (emailResult.messageId) {
+        console.log('📧 Email Message ID:', emailResult.messageId);
+      }
+    } else {
+      console.error('❌ Failed to send approval email notification to:', userPrefs.email);
+      console.error('Error details:', emailResult.message, emailResult.error);
+    }
+  } catch (error) {
+    console.error('❌ Failed to send approval email notification:', error);
+    // Don't throw error - email failures shouldn't break the approval functionality
+  }
+}
+
+// Helper function to get user email and preferences
+async function getUserEmailAndPreferences(userId: string): Promise<{ email: string; emailUpdates: boolean } | null> {
+  try {
+    const userDoc = await getDoc(doc(getDb(), 'users', userId));
+    if (!userDoc.exists()) {
+      return null;
+    }
+
+    const userData = userDoc.data();
+    return {
+      email: userData.email,
+      emailUpdates: userData.preferences?.emailUpdates ?? true // Default to true if not set
+    };
+  } catch (error) {
+    console.error('Error getting user email and preferences:', error);
+    return null;
+  }
+}
+
+// Helper function to send email notification for comments
+async function sendCommentEmailNotification(params: {
+  material: Material;
+  commenterName: string;
+  commentContent: string;
+  materialId: string;
+  recipientUserId: string;
+}): Promise<void> {
+  try {
+    // Check if user wants email notifications
+    const userPrefs = await getUserEmailAndPreferences(params.recipientUserId);
+    if (!userPrefs || !userPrefs.emailUpdates) {
+      console.log('User has disabled email notifications or user not found');
+      return;
+    }
+
+    // Generate material link
+    const materialLink = generateMaterialLink(
+      params.material.programmeId,
+      params.material.subjectCode,
+      params.materialId,
+      true // Show comments by default
+    );
+
+    // Send email
+    const emailResult = await sendCommentEmail({
+      userEmail: userPrefs.email,
+      commenterName: params.commenterName,
+      materialTitle: params.material.title,
+      commentContent: params.commentContent,
+      materialLink,
+      programmeId: params.material.programmeId,
+      subjectCode: params.material.subjectCode
+    });
+
+    if (emailResult.success) {
+      console.log('✅ Email notification sent to:', userPrefs.email);
+      if (emailResult.messageId) {
+        console.log('📧 Email Message ID:', emailResult.messageId);
+      }
+    } else {
+      console.error('❌ Failed to send email notification to:', userPrefs.email);
+      console.error('Error details:', emailResult.message, emailResult.error);
+    }
+  } catch (error) {
+    console.error('❌ Failed to send email notification:', error);
+    // Don't throw error - email failures shouldn't break the comment functionality
   }
 }
 
@@ -626,7 +1083,7 @@ export async function addComment(
     if (commentData.files && commentData.files.length > 0) {
       for (const file of commentData.files) {
         const storageRef = ref(
-          storage, 
+          getStorageInstance(), 
           `comments/${commentData.materialId}/${Date.now()}_${file.name}`
         );
         
@@ -643,7 +1100,7 @@ export async function addComment(
     }
 
     // Create comment document
-    const commentsRef = collection(db, 'materials', commentData.materialId, 'comments');
+    const commentsRef = collection(getDb(), 'materials', commentData.materialId, 'comments');
     const commentDoc = {
       materialId: commentData.materialId,
       content: commentData.content,
@@ -671,6 +1128,17 @@ export async function addComment(
       }).catch(error => {
         console.error('Failed to create notification:', error);
       });
+
+      // Send email notification (don't wait for it)
+      sendCommentEmailNotification({
+        material,
+        commenterName: authorName,
+        commentContent: commentData.content,
+        materialId: material.materialId,
+        recipientUserId: material.uploaderId
+      }).catch(error => {
+        console.error('Failed to send email notification:', error);
+      });
     }
     
     return docRef.id;
@@ -682,7 +1150,7 @@ export async function addComment(
 
 export async function deleteComment(materialId: string, commentId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, 'materials', materialId, 'comments', commentId));
+    await deleteDoc(doc(getDb(), 'materials', materialId, 'comments', commentId));
   } catch (error) {
     console.error('Error deleting comment:', error);
     throw error;
@@ -697,7 +1165,7 @@ export async function createCommentNotification(notificationData: NotificationCr
       ? notificationData.commentContent.substring(0, 100) + '...'
       : notificationData.commentContent;
 
-    const notificationsRef = collection(db, 'users', notificationData.userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', notificationData.userId, 'notifications');
     
     const notificationDoc = {
       ...notificationData,
@@ -714,9 +1182,27 @@ export async function createCommentNotification(notificationData: NotificationCr
   }
 }
 
+export async function createApprovalNotification(notificationData: ApprovalNotificationCreateData): Promise<string> {
+  try {
+    const notificationsRef = collection(getDb(), 'users', notificationData.userId, 'notifications');
+
+    const notificationDoc = {
+      ...notificationData,
+      createdAt: serverTimestamp(),
+      isRead: false
+    };
+
+    const docRef = await addDoc(notificationsRef, notificationDoc);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating approval notification:', error);
+    throw error;
+  }
+}
+
 export async function getCommentNotifications(userId: string): Promise<CommentNotification[]> {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
     
     const querySnapshot = await getDocs(
       query(notificationsRef, orderBy('createdAt', 'desc'))
@@ -734,7 +1220,7 @@ export async function getCommentNotifications(userId: string): Promise<CommentNo
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
     const querySnapshot = await getDocs(
       query(notificationsRef, where('isRead', '==', false))
     );
@@ -748,7 +1234,7 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
 
 export async function markNotificationAsRead(userId: string, notificationId: string): Promise<void> {
   try {
-    await updateDoc(doc(db, 'users', userId, 'notifications', notificationId), {
+    await updateDoc(doc(getDb(), 'users', userId, 'notifications', notificationId), {
       isRead: true
     });
   } catch (error) {
@@ -759,12 +1245,12 @@ export async function markNotificationAsRead(userId: string, notificationId: str
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
     const querySnapshot = await getDocs(
       query(notificationsRef, where('isRead', '==', false))
     );
     
-    const batch = writeBatch(db);
+    const batch = writeBatch(getDb());
     querySnapshot.docs.forEach(doc => {
       batch.update(doc.ref, { isRead: true });
     });
@@ -773,5 +1259,515 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     throw error;
+  }
+}
+
+// =====================
+// APPROVAL NOTIFICATION FUNCTIONS
+// =====================
+
+export async function getApprovalNotifications(userId: string): Promise<ApprovalNotification[]> {
+  try {
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
+
+    const querySnapshot = await getDocs(
+      query(
+        notificationsRef,
+        where('approvalAction', 'in', ['approved', 'rejected']),
+        orderBy('createdAt', 'desc')
+      )
+    );
+
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      notificationId: doc.id
+    })) as ApprovalNotification[];
+  } catch (error) {
+    console.error('Error fetching approval notifications:', error);
+    return [];
+  }
+}
+
+export async function getAllNotifications(userId: string): Promise<(CommentNotification | ApprovalNotification)[]> {
+  try {
+    const notificationsRef = collection(getDb(), 'users', userId, 'notifications');
+
+    const querySnapshot = await getDocs(
+      query(notificationsRef, orderBy('createdAt', 'desc'))
+    );
+
+    return querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      notificationId: doc.id
+    })) as (CommentNotification | ApprovalNotification)[];
+  } catch (error) {
+    console.error('Error fetching all notifications:', error);
+    return [];
+  }
+}
+
+// =====================
+// SEARCH FEATURE FUNCTIONS
+// =====================
+
+/**
+ * Enhanced search function for materials with improved relevance scoring and highlighting
+ */
+export async function searchMaterials(
+  options: SearchOptions
+): Promise<{
+  materials: MaterialWithHighlight[];
+  total: number;
+}> {
+  try {
+    const { query: searchQuery, filters, sortBy = 'relevance', sortOrder = 'desc', limit = 20, offset = 0 } = options;
+
+    // Convert search options to material filter
+    const materialFilter: MaterialFilter = {
+      searchQuery,
+      programmeId: filters?.programmeId,
+      semester: filters?.semester,
+      subjectCode: filters?.subjectCode,
+      materialType: filters?.materialType,
+      uploaderId: filters?.uploaderId,
+      approvalStatus: 'approved' // Only search approved materials
+    };
+
+    // Get materials with basic filtering
+    let materials = await getMaterials(materialFilter);
+
+    // Enhanced text search with relevance scoring
+    if (searchQuery) {
+      const searchTerm = searchQuery.toLowerCase();
+
+      materials = materials.map(material => {
+        const materialWithHighlight = material as MaterialWithHighlight;
+        const searchableFields = [
+          { field: 'title', weight: 3, text: material.title },
+          { field: 'description', weight: 2, text: material.description || '' },
+          { field: 'subjectName', weight: 2, text: material.subjectName },
+          { field: 'uploaderName', weight: 1, text: material.uploaderName },
+          { field: 'subjectCode', weight: 1, text: material.subjectCode },
+          { field: 'materialType', weight: 1, text: material.materialType }
+        ];
+
+        let relevanceScore = 0;
+        const highlightedFields: HighlightedFields = {};
+
+        searchableFields.forEach(({ field, weight, text }) => {
+          if (text && text.toLowerCase().includes(searchTerm)) {
+            relevanceScore += weight;
+
+            // Create highlighted version
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            (highlightedFields as Record<string, string>)[field] = text.replace(regex, '<mark>$1</mark>');
+          }
+        });
+
+        if (relevanceScore > 0) {
+          materialWithHighlight.highlightedFields = highlightedFields;
+        }
+
+        return { ...materialWithHighlight, relevanceScore };
+      }).filter(material => material.relevanceScore > 0);
+
+      // Sort by relevance or other criteria
+      materials.sort((a, b) => {
+        const materialA = a as MaterialWithHighlight;
+        const materialB = b as MaterialWithHighlight;
+        if (sortBy === 'relevance') {
+          return sortOrder === 'desc' ? materialB.relevanceScore! - materialA.relevanceScore! : materialA.relevanceScore! - materialB.relevanceScore!;
+        } else if (sortBy === 'date') {
+          const dateA = a.uploadDate.toDate();
+          const dateB = b.uploadDate.toDate();
+          return sortOrder === 'desc' ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
+        } else if (sortBy === 'title') {
+          return sortOrder === 'desc' ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title);
+        } else if (sortBy === 'downloads') {
+          return sortOrder === 'desc' ? b.downloadCount - a.downloadCount : a.downloadCount - b.downloadCount;
+        }
+        return 0;
+      });
+    }
+
+    // Apply pagination
+    const startIndex = offset;
+    const endIndex = startIndex + limit;
+    const paginatedMaterials = materials.slice(startIndex, endIndex);
+
+    return {
+      materials: paginatedMaterials,
+      total: materials.length
+    };
+  } catch (error) {
+    console.error('Error searching materials:', error);
+    return {
+      materials: [],
+      total: 0
+    };
+  }
+}
+
+/**
+ * Search comments across all materials
+ */
+export async function searchComments(
+  searchQuery: string,
+  options?: {
+    materialId?: string;
+    programmeId?: string;
+    subjectCode?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{
+  comments: CommentWithHighlight[];
+  total: number;
+}> {
+  try {
+    const { materialId, programmeId, subjectCode, limit = 20, offset = 0 } = options || {};
+
+    // First, get relevant materials
+    const materialFilter: MaterialFilter = {
+      approvalStatus: 'approved',
+      ...(programmeId && { programmeId }),
+      ...(subjectCode && { subjectCode }),
+      ...(materialId && { subjectCode: materialId }) // This is a workaround, need to adjust logic
+    };
+
+    const materials = await getMaterials(materialFilter);
+
+    // Filter to specific material if requested
+    const relevantMaterials = materialId
+      ? materials.filter(m => m.materialId === materialId)
+      : materials;
+
+    // Get comments for each material
+    const allComments: CommentWithHighlight[] = [];
+
+    for (const material of relevantMaterials) {
+      try {
+        const commentsQuery = query(
+          collection(getDb(), 'materials', material.materialId, 'comments'),
+          orderBy('createdAt', 'desc')
+        );
+
+        const querySnapshot = await getDocs(commentsQuery);
+        const materialComments = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          commentId: doc.id,
+          materialTitle: material.title,
+          subjectCode: material.subjectCode,
+          programmeId: material.programmeId
+        })) as CommentWithHighlight[];
+
+        allComments.push(...materialComments);
+      } catch (error) {
+        console.warn(`Error loading comments for material ${material.materialId}:`, error);
+      }
+    }
+
+    // Filter comments by search query
+    let filteredComments = allComments;
+    if (searchQuery) {
+      const searchTerm = searchQuery.toLowerCase();
+
+      filteredComments = allComments.map(comment => {
+        const commentWithHighlight = comment as CommentWithHighlight;
+
+        // Check content and author name
+        const contentMatch = comment.content.toLowerCase().includes(searchTerm);
+        const authorMatch = comment.authorName.toLowerCase().includes(searchTerm);
+
+        if (contentMatch || authorMatch) {
+          const highlightedFields: HighlightedFields = {};
+
+          if (contentMatch) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            highlightedFields.content = comment.content.replace(regex, '<mark>$1</mark>');
+          }
+
+          if (authorMatch) {
+            const regex = new RegExp(`(${searchTerm})`, 'gi');
+            highlightedFields.authorName = comment.authorName.replace(regex, '<mark>$1</mark>');
+          }
+
+          commentWithHighlight.highlightedFields = highlightedFields;
+          return commentWithHighlight;
+        }
+
+        return null;
+      }).filter(Boolean) as CommentWithHighlight[];
+    }
+
+    // Sort by creation date (newest first)
+    filteredComments.sort((a, b) => {
+      const dateA = a.createdAt.toDate();
+      const dateB = b.createdAt.toDate();
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    // Apply pagination
+    const startIndex = offset;
+    const endIndex = startIndex + limit;
+    const paginatedComments = filteredComments.slice(startIndex, endIndex);
+
+    return {
+      comments: paginatedComments,
+      total: filteredComments.length
+    };
+  } catch (error) {
+    console.error('Error searching comments:', error);
+    return {
+      comments: [],
+      total: 0
+    };
+  }
+}
+
+/**
+ * Search subjects by name and code
+ */
+export async function searchSubjects(
+  searchQuery: string,
+  options?: {
+    programmeId?: string;
+    semester?: number;
+    limit?: number;
+  }
+): Promise<{
+  subjects: SubjectSearchResult[];
+  total: number;
+}> {
+  try {
+    const { programmeId, semester, limit = 20 } = options || {};
+    const searchTerm = searchQuery.toLowerCase().trim();
+
+    if (!searchTerm) {
+      return { subjects: [], total: 0 };
+    }
+
+    // Build the query with optional filters
+    const constraints = [];
+    if (programmeId) {
+      constraints.push(where('programmeId', '==', programmeId));
+    }
+    if (semester) {
+      constraints.push(where('semester', '==', semester));
+    }
+
+    // Create the final query
+    const queryRef = constraints.length > 0
+      ? query(collection(getDb(), 'subjects'), ...constraints)
+      : query(collection(getDb(), 'subjects'));
+
+    const querySnapshot = await getDocs(queryRef);
+    const allSubjects = querySnapshot.docs.map(doc => ({
+      ...doc.data(),
+      subjectId: doc.id
+    })) as Subject[];
+
+    // Filter and score subjects based on search term
+    const matchingSubjects = allSubjects
+      .map(subject => {
+        let relevanceScore = 0;
+        const highlightedFields: { subjectName?: string; subjectCode?: string } = {};
+
+        // Check subject name match
+        if (subject.subjectName.toLowerCase().includes(searchTerm)) {
+          relevanceScore += 3;
+          const regex = new RegExp(`(${searchTerm})`, 'gi');
+          highlightedFields.subjectName = subject.subjectName.replace(regex, '<mark>$1</mark>');
+        }
+
+        // Check subject code match
+        if (subject.subjectCode.toLowerCase().includes(searchTerm)) {
+          relevanceScore += 2;
+          const regex = new RegExp(`(${searchTerm})`, 'gi');
+          highlightedFields.subjectCode = subject.subjectCode.replace(regex, '<mark>$1</mark>');
+        }
+
+        // Check description match (lower weight)
+        if (subject.description && subject.description.toLowerCase().includes(searchTerm)) {
+          relevanceScore += 1;
+        }
+
+        return {
+          subject,
+          relevanceScore,
+          highlightedFields: Object.keys(highlightedFields).length > 0 ? highlightedFields : undefined
+        };
+      })
+      .filter(result => result.relevanceScore > 0)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, limit);
+
+    // Get material counts for each subject
+    const subjectsWithCounts = await Promise.all(
+      matchingSubjects.map(async ({ subject, relevanceScore, highlightedFields }) => {
+        // Count materials for this subject
+        const materialsQuery = query(
+          collection(getDb(), 'materials'),
+          where('subjectCode', '==', subject.subjectCode),
+          where('programmeId', '==', subject.programmeId),
+          where('approvalStatus', '==', 'approved')
+        );
+        const materialsSnapshot = await getDocs(materialsQuery);
+        const materialCount = materialsSnapshot.size;
+
+        return {
+          id: subject.subjectId,
+          type: 'subject' as const,
+          subjectCode: subject.subjectCode,
+          subjectName: subject.subjectName,
+          programmeId: subject.programmeId,
+          semester: subject.semester,
+          materialCount,
+          description: subject.description,
+          highlightedFields
+        } as SubjectSearchResult;
+      })
+    );
+
+    return {
+      subjects: subjectsWithCounts,
+      total: subjectsWithCounts.length
+    };
+  } catch (error) {
+    console.error('Error searching subjects:', error);
+    return { subjects: [], total: 0 };
+  }
+}
+
+/**
+ * Combined search function for both materials and comments
+ */
+export async function searchAll(
+  searchQuery: string,
+  options?: SearchAllOptions
+): Promise<SearchResults> {
+  try {
+    const { filters, sortBy, limit = 20 } = options || {};
+
+    // Search materials, comments, and subjects in parallel
+    const [materialsResult, commentsResult, subjectsResult] = await Promise.all([
+      searchMaterials({
+        query: searchQuery,
+        filters,
+        limit,
+        sortBy: sortBy || 'relevance',
+        sortOrder: 'desc'
+      }),
+      searchComments(searchQuery, {
+        programmeId: filters?.programmeId,
+        subjectCode: filters?.subjectCode,
+        limit
+      }),
+      searchSubjects(searchQuery, {
+        programmeId: filters?.programmeId,
+        semester: filters?.semester,
+        limit
+      })
+    ]);
+
+    // Convert materials to search results
+    const materialSearchResults: SearchResult[] = materialsResult.materials.map(material => ({
+      id: material.materialId,
+      type: 'material' as const,
+      title: material.title,
+      description: material.description,
+      snippet: material.highlightedFields?.title || material.highlightedFields?.description || material.title,
+      relevanceScore: material.relevanceScore || 0,
+      programmeId: material.programmeId,
+      subjectCode: material.subjectCode,
+      materialId: material.materialId,
+      authorName: material.uploaderName,
+      createdAt: material.uploadDate,
+      materialType: material.materialType,
+      fileSize: material.fileSize,
+      fileType: material.fileType,
+      downloadURL: material.downloadURL
+    }));
+
+    // Convert comments to search results
+    const commentSearchResults: SearchResult[] = commentsResult.comments.map(comment => ({
+      id: comment.commentId,
+      type: 'comment' as const,
+      title: comment.content.substring(0, 100) + (comment.content.length > 100 ? '...' : ''),
+      description: `Comment by ${comment.authorName}`,
+      snippet: comment.highlightedFields?.content || comment.content,
+      relevanceScore: 1, // Basic relevance for comments
+      programmeId: comment.programmeId,
+      subjectCode: comment.subjectCode,
+      materialId: comment.materialId,
+      commentId: comment.commentId,
+      authorName: comment.authorName,
+      createdAt: comment.createdAt
+    }));
+
+    // Sort all results by relevance
+    const allResults = [...materialSearchResults, ...commentSearchResults]
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, limit);
+
+    return {
+      materials: materialSearchResults,
+      comments: commentSearchResults,
+      subjects: subjectsResult.subjects,
+      totalMaterials: materialsResult.total,
+      totalComments: commentsResult.total,
+      totalSubjects: subjectsResult.total,
+      searchQuery,
+      filters: filters || {},
+      hasMore: materialsResult.total > limit || commentsResult.total > limit || subjectsResult.total > limit
+    };
+  } catch (error) {
+    console.error('Error in combined search:', error);
+    return {
+      materials: [],
+      comments: [],
+      subjects: [],
+      totalMaterials: 0,
+      totalComments: 0,
+      totalSubjects: 0,
+      searchQuery,
+      filters: {},
+      hasMore: false
+    };
+  }
+}
+
+/**
+ * Get search suggestions based on query
+ */
+export async function getSearchSuggestions(
+  query: string,
+  limit: number = 5
+): Promise<string[]> {
+  try {
+    if (query.length < 2) return [];
+
+    const suggestions: string[] = [];
+
+    // Get material titles that match
+    const materials = await getMaterials({
+      searchQuery: query,
+      approvalStatus: 'approved'
+    });
+
+    // Extract unique suggestions
+    const materialTitles = [...new Set(materials.map(m => m.title))];
+    const subjectNames = [...new Set(materials.map(m => m.subjectName))];
+    const uploaderNames = [...new Set(materials.map(m => m.uploaderName))];
+
+    // Add suggestions up to limit
+    suggestions.push(...materialTitles.slice(0, Math.floor(limit / 3)));
+    suggestions.push(...subjectNames.slice(0, Math.floor(limit / 3)));
+    suggestions.push(...uploaderNames.slice(0, Math.floor(limit / 3)));
+
+    return suggestions.slice(0, limit);
+  } catch (error) {
+    console.error('Error getting search suggestions:', error);
+    return [];
   }
 }

@@ -16,7 +16,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 
-import { db } from './firebase';
+import { getDb } from './firebase';
 import type { User, UserProfile } from '@/types/user';
 
 // Admin response types
@@ -65,7 +65,7 @@ export async function approveUser(
   adminName: string
 ): Promise<AdminResponse> {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(getDb(), 'users', userId);
     
     await updateDoc(userRef, {
       isVerified: true,
@@ -95,7 +95,7 @@ export async function rejectUser(
   reason: string
 ): Promise<AdminResponse> {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(getDb(), 'users', userId);
     
     await updateDoc(userRef, {
       isVerified: false,
@@ -128,14 +128,14 @@ export async function getAllUsers(
     
     if (status && status !== 'all') {
       q = query(
-        collection(db, 'users'),
+        collection(getDb(), 'users'),
         where('verificationStatus', '==', status),
         orderBy('registrationDate', 'desc'),
         ...(userLimit ? [limit(userLimit)] : [])
       );
     } else {
       q = query(
-        collection(db, 'users'),
+        collection(getDb(), 'users'),
         orderBy('registrationDate', 'desc'),
         ...(userLimit ? [limit(userLimit)] : [])
       );
@@ -166,7 +166,7 @@ export async function bulkApproveUsers(
 ): Promise<AdminResponse> {
   try {
     const updatePromises = userIds.map(userId => {
-      const userRef = doc(db, 'users', userId);
+      const userRef = doc(getDb(), 'users', userId);
       return updateDoc(userRef, {
         isVerified: true,
         verificationStatus: 'approved',
@@ -195,10 +195,10 @@ export async function getAdminStats() {
   try {
     const [pendingUsersQuery, allUsersQuery] = await Promise.all([
       getDocs(query(
-        collection(db, 'users'),
+        collection(getDb(), 'users'),
         where('verificationStatus', '==', 'pending')
       )),
-      getDocs(collection(db, 'users'))
+      getDocs(collection(getDb(), 'users'))
     ]);
 
     return {
@@ -244,7 +244,7 @@ export async function createFirstAdmin(
   userData: Partial<UserProfile>
 ): Promise<AdminResponse> {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(getDb(), 'users', userId);
     
     await updateDoc(userRef, {
       ...userData,

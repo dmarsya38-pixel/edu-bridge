@@ -19,7 +19,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 
-import { auth, db } from './firebase';
+import { getAuthInstance, getDb } from './firebase';
 import type { 
   AuthError,
   RegistrationResponse,
@@ -90,7 +90,7 @@ export function validateInstitutionalEmail(email: string): { isValid: boolean; e
 export async function checkEmployeeIdExists(employeeId: string): Promise<boolean> {
   try {
     const q = query(
-      collection(db, 'users'),
+      collection(getDb(), 'users'),
       where('employeeId', '==', employeeId.trim().toUpperCase())
     );
     const snapshot = await getDocs(q);
@@ -137,13 +137,28 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
 
     // Create Firebase Auth user
     const userCredential: UserCredential = await createUserWithEmailAndPassword(
-      auth,
+      getAuthInstance(),
       formData.email,
       formData.password
     );
 
     // Send email verification
     await sendEmailVerification(userCredential.user);
+
+    // Fetch programme name from programmes collection
+    let programmeName = 'Unknown Programme';
+    try {
+      const programmesCollection = collection(getDb(), 'programmes');
+      const programmeQuery = query(programmesCollection, where('programmeId', '==', formData.programme));
+      const programmeSnapshot = await getDocs(programmeQuery);
+      
+      if (!programmeSnapshot.empty) {
+        const programmeData = programmeSnapshot.docs[0].data();
+        programmeName = programmeData.programmeName || 'Unknown Programme';
+      }
+    } catch (error) {
+      console.warn('Failed to fetch programme name during registration:', error);
+    }
 
     // Create lecturer profile in Firestore (auto-approved)
     const userData: CreateUserData & { 
@@ -167,7 +182,7 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
       // Teaching assignments (NEW)
       teachingSubjects: formData.subjects,
       programmes: [formData.programme], // Single programme as array
-      programName: 'Unknown Programme', // TODO: Fetch actual programme name from programmes collection
+      programName: programmeName, // Use fetched programme name
       
       // Auto-generated fields (not applicable for lecturers)
       politeknik: 'Politeknik Nilai',
@@ -206,7 +221,7 @@ export async function registerLecturer(formData: LecturerRegistrationData): Prom
 
     // Save to Firestore
     console.log('💾 Saving lecturer data to Firestore...', userData);
-    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+    await setDoc(doc(getDb(), 'users', userCredential.user.uid), userData);
     console.log('✅ Lecturer data saved successfully');
 
     // Convert to User type for response (with isVerified: false)

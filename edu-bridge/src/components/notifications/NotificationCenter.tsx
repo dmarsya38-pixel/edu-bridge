@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  getCommentNotifications, 
-  getUnreadNotificationCount, 
+import {
+  getAllNotifications,
+  getUnreadNotificationCount,
   markNotificationAsRead,
-  markAllNotificationsAsRead 
+  markAllNotificationsAsRead
 } from '@/lib/academic';
 import { navigateToMaterialFromNotification } from '@/lib/dashboard-navigation';
-import type { CommentNotification } from '@/types/academic';
+import type { CommentNotification, ApprovalNotification } from '@/types/academic';
 import type { Timestamp } from 'firebase/firestore';
 
 interface NotificationCenterProps {
@@ -20,21 +20,21 @@ interface NotificationCenterProps {
 export function NotificationCenter({ onClose }: NotificationCenterProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [notifications, setNotifications] = useState<CommentNotification[]>([]);
+  const [notifications, setNotifications] = useState<(CommentNotification | ApprovalNotification)[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
       const [notificationsData, unreadCountData] = await Promise.all([
-        getCommentNotifications(user.uid),
+        getAllNotifications(user.uid),
         getUnreadNotificationCount(user.uid)
       ]);
-      
+
       setNotifications(notificationsData);
       setUnreadCount(unreadCountData);
     } catch (error) {
@@ -50,7 +50,7 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
     }
   }, [isOpen, user, loadNotifications]);
 
-  const handleNotificationClick = async (notification: CommentNotification) => {
+  const handleNotificationClick = async (notification: CommentNotification | ApprovalNotification) => {
     if (!notification.isRead) {
       try {
         await markNotificationAsRead(user!.uid, notification.notificationId);
@@ -87,6 +87,72 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (error) {
       console.error('Error marking all as read:', error);
+    }
+  };
+
+  const isCommentNotification = (notification: CommentNotification | ApprovalNotification): notification is CommentNotification => {
+    return 'commenterName' in notification;
+  };
+
+  const isApprovalNotification = (notification: CommentNotification | ApprovalNotification): notification is ApprovalNotification => {
+    return 'approvalAction' in notification;
+  };
+
+  const getNotificationIcon = (notification: CommentNotification | ApprovalNotification) => {
+    if (isCommentNotification(notification)) {
+      return (
+        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+          <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">
+            {notification.commenterName.charAt(0).toUpperCase()}
+          </span>
+        </div>
+      );
+    } else {
+      const color = notification.approvalAction === 'approved' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-red-100 dark:bg-red-900/30';
+      const textColor = notification.approvalAction === 'approved' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+      return (
+        <div className={`w-8 h-8 ${color} rounded-full flex items-center justify-center`}>
+          <span className={`${textColor} text-xs font-bold`}>
+            {notification.approverName.charAt(0).toUpperCase()}
+          </span>
+        </div>
+      );
+    }
+  };
+
+  const getNotificationContent = (notification: CommentNotification | ApprovalNotification) => {
+    if (isCommentNotification(notification)) {
+      return (
+        <>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {notification.commenterName}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            commented on your material &ldquo;{notification.materialTitle}&rdquo;
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+            &ldquo;{notification.commentContent}&rdquo;
+          </p>
+        </>
+      );
+    } else {
+      const actionText = notification.approvalAction === 'approved' ? 'approved' : 'rejected';
+      const actionColor = notification.approvalAction === 'approved' ? 'text-emerald-600' : 'text-red-600';
+      return (
+        <>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {notification.approverName}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            <span className={`font-medium ${actionColor}`}>{actionText}</span> your material &ldquo;{notification.materialTitle}&rdquo;
+          </p>
+          {notification.rejectionReason && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+              Reason: &ldquo;{notification.rejectionReason}&rdquo;
+            </p>
+          )}
+        </>
+      );
     }
   };
 
@@ -183,27 +249,15 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
                   >
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">
-                            {notification.commenterName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        {getNotificationIcon(notification)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {notification.commenterName}
-                          </p>
+                        {getNotificationContent(notification)}
+                        <div className="flex items-center justify-between mt-1">
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatNotificationDate(notification.createdAt)}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          commented on your material &ldquo;{notification.materialTitle}&rdquo;
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                          &ldquo;{notification.commentContent}&rdquo;
-                        </p>
                       </div>
                       {!notification.isRead && (
                         <div className="flex-shrink-0">

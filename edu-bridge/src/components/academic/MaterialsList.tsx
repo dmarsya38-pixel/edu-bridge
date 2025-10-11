@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { MaterialCard } from './MaterialCard';
 import { getMaterials } from '@/lib/academic';
 import type { Material, MaterialFilter } from '@/types/academic';
@@ -12,14 +12,17 @@ interface MaterialsListProps {
   subject: Subject;
   onBack?: () => void;
   onPreview?: (material: Material) => void;
+  highlight?: string;
+  commentId?: string;
 }
 
 interface MaterialsByYear {
   [year: string]: Material[];
 }
 
-export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps) {
+export function MaterialsList({ subject, onBack, onPreview, highlight = '', commentId = '' }: MaterialsListProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [materialsByYear, setMaterialsByYear] = useState<MaterialsByYear>({});
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,7 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
 
     } catch (err) {
       console.error('Error loading materials:', err);
-      setError('Gagal memuatkan bahan. Sila cuba lagi.');
+      setError('Failed to load materials. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -133,7 +136,10 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
           <div className="flex items-center space-x-3">
             {onBack && (
               <button
-                onClick={onBack}
+                onClick={() => {
+                  onBack?.();
+                  router.push('/dashboard?view=browser');
+                }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
               >
                 <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,7 +182,7 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
           <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
               <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-gray-600 dark:text-gray-400">Memuatkan bahan...</span>
+              <span className="text-gray-600 dark:text-gray-400">Loading materials...</span>
             </div>
           </div>
         </div>
@@ -198,7 +204,7 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
             onClick={loadMaterials}
             className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
           >
-            Cuba Lagi
+            Try Again
           </button>
         </div>
       )}
@@ -216,12 +222,12 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
                   </svg>
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Tiada Bahan Dijumpai
+                  No Materials Found
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                   {selectedType === 'all' 
-                    ? 'Belum ada bahan yang dimuatnaik untuk subjek ini.'
-                    : `Belum ada ${getMaterialTypeLabel(selectedType).toLowerCase()} untuk subjek ini.`
+                    ? 'No materials have been uploaded for this subject yet.'
+                    : `No ${getMaterialTypeLabel(selectedType).toLowerCase()} for this subject yet.`
                   }
                 </p>
               </div>
@@ -234,11 +240,11 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
                   {/* Year Header */}
                   <div className="flex items-center space-x-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Tahun {year}
+                      Year {year}
                     </h2>
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {materialsByYear[year].length} bahan
+                      {materialsByYear[year].length} materials
                     </span>
                   </div>
                   
@@ -251,6 +257,8 @@ export function MaterialsList({ subject, onBack, onPreview }: MaterialsListProps
                         onPreview={onPreview}
                         showUploader={true}
                         initialShowComments={showComments && material.materialId === targetMaterialId}
+                        highlight={highlight}
+                        commentId={commentId}
                       />
                     ))}
                   </div>
