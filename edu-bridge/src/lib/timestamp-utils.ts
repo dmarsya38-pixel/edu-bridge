@@ -1,6 +1,18 @@
 import { Timestamp } from 'firebase/firestore';
 
 /**
+ * Union type for all possible timestamp inputs we might receive
+ */
+type TimestampInput =
+  | Timestamp
+  | Date
+  | string
+  | number
+  | { seconds: number; nanoseconds?: number }
+  | null
+  | undefined;
+
+/**
  * Utility functions for safe timestamp handling across the application
  */
 
@@ -8,14 +20,14 @@ import { Timestamp } from 'firebase/firestore';
  * Safely convert any timestamp-like object to a JavaScript Date
  * Handles Firestore Timestamps, Date objects, strings, and numbers
  */
-export function safeTimestampToDate(timestamp: any): Date | null {
+export function safeTimestampToDate(timestamp: TimestampInput): Date | null {
   if (!timestamp) {
     return null;
   }
 
   try {
     // Handle Firestore Timestamp
-    if (timestamp && typeof timestamp.toDate === 'function') {
+    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
       return timestamp.toDate();
     }
 
@@ -53,7 +65,7 @@ export function safeTimestampToDate(timestamp: any): Date | null {
  * Safely format any timestamp-like object to a localized string
  */
 export function safeFormatTimestamp(
-  timestamp: any,
+  timestamp: TimestampInput,
   options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
@@ -79,14 +91,14 @@ export function safeFormatTimestamp(
 /**
  * Create a proper Firestore Timestamp from various input types
  */
-export function createSafeTimestamp(input: any): Timestamp {
+export function createSafeTimestamp(input: TimestampInput): Timestamp {
   if (!input) {
     return Timestamp.now();
   }
 
   try {
     // If it's already a Timestamp, return it
-    if (input && typeof input.toDate === 'function') {
+    if (input && typeof input === 'object' && 'toDate' in input && typeof input.toDate === 'function') {
       return input as Timestamp;
     }
 
@@ -123,7 +135,7 @@ export function createSafeTimestamp(input: any): Timestamp {
  * Check if a timestamp is recent (within the last X minutes/hours/days)
  */
 export function isTimestampRecent(
-  timestamp: any,
+  timestamp: TimestampInput,
   threshold: { minutes?: number; hours?: number; days?: number }
 ): boolean {
   const date = safeTimestampToDate(timestamp);
@@ -150,7 +162,7 @@ export function isTimestampRecent(
 /**
  * Get a human-readable relative time string (e.g., "2 hours ago")
  */
-export function getRelativeTimeString(timestamp: any, locale: string = 'en-US'): string {
+export function getRelativeTimeString(timestamp: TimestampInput, locale: string = 'en-US'): string {
   const date = safeTimestampToDate(timestamp);
   if (!date) {
     return 'Unknown time';

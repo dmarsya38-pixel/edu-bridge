@@ -139,8 +139,8 @@ const FileUploadSettings: React.FC<FileUploadSettingsProps> = ({ settings, onUpd
                 type="number"
                 min="10"
                 max="255"
-                value={maxFileNameLength}
-                onChange={(e) => setMaxFileNameLength(parseInt(e.target.value) || 100)}
+                value={maxFileNameLengthState}
+                onChange={(e) => setMaxFileNameLengthState(parseInt(e.target.value) || 100)}
                 className="w-20 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-center text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isSaving}
               />

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllUsers, promoteLecturerToAdmin } from '@/lib/admin';
+import { safeFormatTimestamp } from '@/lib/timestamp-utils';
 import type { UserProfile } from '@/types/user';
 
 interface LecturerManagerProps {
@@ -77,18 +78,7 @@ export function LecturerManager({ className }: LecturerManagerProps) {
     }
   };
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -209,7 +199,7 @@ export function LecturerManager({ className }: LecturerManagerProps) {
                     )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(lecturer.registrationDate)}
+                    {safeFormatTimestamp(lecturer.registrationDate)}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     <button
