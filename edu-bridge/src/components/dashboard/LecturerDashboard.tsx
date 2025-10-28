@@ -274,9 +274,9 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
             <span>Back to Dashboard</span>
           </button>
         </div>
-        <ProgrammeBrowser 
+        <ProgrammeBrowser
           onSubjectSelect={handleSubjectSelect}
-          selectedProgrammeId={user.program}
+          selectedProgrammeId={lecturerProgramme?.programmeCode || user.program}
         />
       </div>
     );

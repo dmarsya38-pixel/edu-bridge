@@ -52,7 +52,7 @@ export default function AdminUsersPage() {
                 )}
                 <div className="flex items-center space-x-2">
                   <a
-                    href="/admin"
+                    href="/dashboard"
                     className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
                   >
                     Back to Dashboard

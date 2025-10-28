@@ -117,16 +117,17 @@ export function LecturerRegistrationForm({ onSwitchToStudent, onSuccess }: Lectu
         break;
 
       case 'password':
-        if ((value as string).length < 6) {
-          error = 'Password must be at least 6 characters';
-        }
-        break;
+  const password = value as string;
 
-      case 'confirmPassword':
-        if (value !== formData.password) {
-          error = 'Passwords do not match';
-        }
-        break;
+  if (!password) {
+    error = 'Password is required';
+  } else {
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!regex.test(password)) {
+      error = 'Password must contain uppercase, lowercase, and number (min 8 characters)';
+    }
+  }
+  break;
 
       case 'phoneNumber':
         if (!(value as string).trim()) {

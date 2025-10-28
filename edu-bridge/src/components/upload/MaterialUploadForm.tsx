@@ -428,7 +428,7 @@ export function MaterialUploadForm({
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="text-4xl">📎</div>
+                <div className="text-4xl">📄</div>
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Drag and drop your file here, or{' '}
